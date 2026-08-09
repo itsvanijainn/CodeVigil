@@ -457,5 +457,464 @@
     "affected_software": "Samba",
     "affected_code": "// Upload malicious .so library to writable share\n// Then request it via named pipe to trigger dlopen()\nNTSTATUS status = smbd_do_qfsinfo(conn, SMB_QUERY_FS_DEVICE_INFO);",
     "fix_pattern": "Upgrade Samba to patched version (4.6.4, 4.5.10, 4.4.14+). Set 'nt pipe support = no' as interim fix. Restrict writable shares. Monitor for suspicious library uploads."
+  },
+  {
+    "cve_id": "CVE-2024-3094",
+    "description": "Malicious code was discovered in XZ Utils versions 5.6.0 and 5.6.1. The liblzma build process inserts an obfuscated backdoor during build compilation, allowing unauthorized remote access and code execution via SSH authentication mechanisms.",
+    "type": "Remote Code Execution",
+    "severity": "Critical",
+    "affected_software": "XZ Utils / liblzma 5.6.0-5.6.1",
+    "affected_code": "// Backdoor injected into RSA_public_decrypt via liblzma hook\n_get_cpuid(1, &eax, &ebx, &ecx, &edx);",
+    "fix_pattern": "Downgrade XZ Utils to 5.4.x immediately. Audit system packages for unauthorized SSH key access and backdoor signatures."
+  },
+  {
+    "cve_id": "CVE-2024-21626",
+    "description": "runc prior to 1.1.12 contains a container breakout vulnerability via leaky file descriptors. An attacker can create a container that accesses file descriptors referencing the host filesystem, escaping container isolation.",
+    "type": "Path Traversal",
+    "severity": "Critical",
+    "affected_software": "runc / Docker / Kubernetes",
+    "affected_code": "WORKDIR /proc/self/fd/7",
+    "fix_pattern": "Update runc to 1.1.12 or later. Ensure container execution environments close non-standard file descriptors prior to execve."
+  },
+  {
+    "cve_id": "CVE-2024-1709",
+    "description": "ConnectWise ScreenConnect 23.9.7 and prior contains an authentication bypass vulnerability allowing an unauthenticated attacker to create an administrative user account and achieve remote code execution.",
+    "type": "Authentication Bypass",
+    "severity": "Critical",
+    "affected_software": "ConnectWise ScreenConnect",
+    "affected_code": "POST /SetupWizard.aspx/InitializeSetup HTTP/1.1\nHost: target\nContent-Type: application/json",
+    "fix_pattern": "Upgrade ScreenConnect to version 23.9.8 or later immediately. Remove unauthorized administrator accounts created during vulnerability window."
+  },
+  {
+    "cve_id": "CVE-2023-34362",
+    "description": "MOVEit Transfer SQL Injection Vulnerability. An unauthenticated attacker could gain access to MOVEit Transfer's database and execute arbitrary SQL queries, leading to remote code execution and data exfiltration.",
+    "type": "SQL Injection",
+    "severity": "Critical",
+    "affected_software": "Progress MOVEit Transfer",
+    "affected_code": "SET @sql = 'SELECT * FROM files WHERE id = ''' + @user_supplied_id + ''''; EXEC(@sql);",
+    "fix_pattern": "Apply Progress MOVEit Transfer security patch for CVE-2023-34362. Disable HTTP/HTTPS traffic to MOVEit environment until patched."
+  },
+  {
+    "cve_id": "CVE-2023-4911",
+    "description": "GNU C Library (glibc) ld.so contains a buffer overflow vulnerability in the processing of the GLIBC_TUNABLES environment variable, allowing local privilege escalation to root. Known as Looney Tunables.",
+    "type": "Buffer Overflow",
+    "severity": "High",
+    "affected_software": "glibc / Linux Kernel",
+    "affected_code": "GLIBC_TUNABLES=glibc.pthread.rseq=val:glibc.pthread.rseq=val",
+    "fix_pattern": "Update glibc package via Linux distribution package manager. Sanitize SUID binary environment variables."
+  },
+  {
+    "cve_id": "CVE-2023-4863",
+    "description": "Heap buffer overflow in libwebp in Google Chrome, Mozilla Firefox, and Apple Safari allows a remote attacker to perform an out-of-bounds memory write via a crafted WebP image file.",
+    "type": "Buffer Overflow",
+    "severity": "Critical",
+    "affected_software": "libwebp / Google Chrome / Firefox / Safari",
+    "affected_code": "BuildHuffmanTable(VP8LDecoder* const dec, int code_lengths)",
+    "fix_pattern": "Upgrade libwebp to 1.3.2 or later. Update web browsers and electron-based applications to latest patched builds."
+  },
+  {
+    "cve_id": "CVE-2022-30190",
+    "description": "Microsoft Windows MSDT Remote Code Execution Vulnerability (Follina). An attacker can execute arbitrary code with the privileges of the calling application using the ms-msdt protocol scheme in Office documents.",
+    "type": "Remote Code Execution",
+    "severity": "Critical",
+    "affected_software": "Microsoft Office / MSDT",
+    "affected_code": "location.href = \"ms-msdt:/id PCWDiagnostic /skip force /param IT_Reboot=True\"",
+    "fix_pattern": "Apply KB5014699 security update. Disable MSDT URL protocol handler via registry (reg delete HKCR\\ms-msdt)."
+  },
+  {
+    "cve_id": "CVE-2022-41040",
+    "description": "Microsoft Exchange Server SSRF Vulnerability (ProxyNotShell). An attacker can cause a server-side request forgery leading to PowerShell remoting and remote code execution.",
+    "type": "SSRF",
+    "severity": "Critical",
+    "affected_software": "Microsoft Exchange Server 2013/2016/2019",
+    "affected_code": "GET /autodiscover/autodiscover.json?@evil.com/powershell/?X-Rps-CAT=... HTTP/1.1",
+    "fix_pattern": "Apply Microsoft Exchange November 2022 Security Update. Add URL Rewrite rule blocking '.*autodiscover\\.json.*powershell.*'."
+  },
+  {
+    "cve_id": "CVE-2021-34473",
+    "description": "Microsoft Exchange Server Remote Code Execution Vulnerability (ProxyShell). Combined with CVE-2021-34523 and CVE-2021-31207 to allow unauthenticated RCE via PowerShell remoting backend.",
+    "type": "Remote Code Execution",
+    "severity": "Critical",
+    "affected_software": "Microsoft Exchange Server",
+    "affected_code": "POST /autodiscover/autodiscover.json?email=admin@domain.com/powershell/?X-Rps-CAT=...",
+    "fix_pattern": "Apply Microsoft Exchange July 2021 KB5004778 security update. Restrict remote access to PowerShell virtual directory."
+  },
+  {
+    "cve_id": "CVE-2020-0601",
+    "description": "Windows CryptoAPI Spoofing Vulnerability (CurveBall). A spoofing vulnerability exists in the way Windows CryptoAPI (Crypt32.dll) validates Elliptic Curve Cryptography (ECC) certificates, allowing attackers to sign malicious executable code.",
+    "type": "Cryptographic Vulnerability",
+    "severity": "Critical",
+    "affected_software": "Microsoft Windows 10 / Windows Server 2016/2019",
+    "affected_code": "// Custom ECC curve parameters matching standard generator point G\nEC_GROUP_set_generator(group, custom_G, order, cofactor);",
+    "fix_pattern": "Apply Microsoft January 2020 Security Update (KB4534273). Enforce strict x509 ECC certificate validation."
+  },
+  {
+    "cve_id": "CVE-2023-22515",
+    "description": "Atlassian Confluence Data Center and Server Privilege Escalation Vulnerability. Allows unauthenticated attackers to create admin accounts and access Confluence instances.",
+    "type": "Authentication Bypass",
+    "severity": "Critical",
+    "affected_software": "Atlassian Confluence Server & Data Center",
+    "affected_code": "POST /setup/setupadministrator.action HTTP/1.1\n{\"bootstrapStatusProvider.applicationConfig.setupComplete\":false}",
+    "fix_pattern": "Upgrade Confluence to 8.3.3, 8.4.3, or 8.5.2+. Restrict external access to /setup/* endpoints."
+  },
+  {
+    "cve_id": "CVE-2022-26134",
+    "description": "Atlassian Confluence OGNL Injection Remote Code Execution. Allows unauthenticated remote attackers to execute arbitrary code on a Confluence Server or Data Center instance.",
+    "type": "Command Injection",
+    "severity": "Critical",
+    "affected_software": "Atlassian Confluence Server & Data Center",
+    "affected_code": "GET /%24%7B%40java.lang.Runtime%40getRuntime%28%29.exec%28%22whoami%22%29%7D/ HTTP/1.1",
+    "fix_pattern": "Upgrade Confluence Server/Data Center to version 7.18.1, 7.17.4, or 7.4.17+. Implement WAF rules filtering OGNL expressions."
+  },
+  {
+    "cve_id": "CVE-2020-0796",
+    "description": "Windows SMBv3 Compression Remote Code Execution Vulnerability (SMBGhost). Unauthenticated attackers can send specially crafted packets to a vulnerable SMBv3 server to execute arbitrary code.",
+    "type": "Remote Code Execution",
+    "severity": "Critical",
+    "affected_software": "Microsoft Windows 10 1903 / 1909",
+    "affected_code": "// SMB2 Compression header payload size manipulation integer overflow",
+    "fix_pattern": "Apply KB4551762 update. Disable SMBv3 compression via PowerShell (Set-ItemProperty -Path \"HKLM:\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters\" DisableCompression -Value 1)."
+  },
+  {
+    "cve_id": "CVE-2023-38606",
+    "description": "Apple iOS and macOS Kernel Vulnerability. An attacker with physical or local access can bypass kernel memory protections via hardware MMIO registers. Used in Operation Triangulation.",
+    "type": "Privilege Escalation",
+    "severity": "Critical",
+    "affected_software": "Apple iOS < 16.6 / macOS",
+    "affected_code": "// Direct MMIO register write bypassing page table permission attributes",
+    "fix_pattern": "Update Apple devices to iOS 16.6 / macOS 13.5 or later."
+  },
+  {
+    "cve_id": "CVE-2023-38831",
+    "description": "WinRAR Spoofing Extension Vulnerability. Allows attackers to execute arbitrary code when a user attempts to view a benign file inside a ZIP archive.",
+    "type": "Remote Code Execution",
+    "severity": "Critical",
+    "affected_software": "RARLAB WinRAR < 6.23",
+    "affected_code": "archive.zip -> document.pdf .cmd",
+    "fix_pattern": "Upgrade WinRAR to 6.23 or later."
+  },
+  {
+    "cve_id": "CVE-2023-27350",
+    "description": "PaperCut MF/NG Unauthenticated Remote Code Execution. Allows unauthenticated remote attackers to bypass authentication and execute arbitrary code as SYSTEM.",
+    "type": "Authentication Bypass",
+    "severity": "Critical",
+    "affected_software": "PaperCut MF / PaperCut NG < 22.0.9",
+    "affected_code": "POST /app?service=page/SetupCompleted HTTP/1.1",
+    "fix_pattern": "Upgrade PaperCut to version 22.0.9 or higher."
+  },
+  {
+    "cve_id": "CVE-2022-40684",
+    "description": "Fortinet FortiOS Administrative Interface Authentication Bypass. An unauthenticated attacker can perform administrative requests via specially crafted HTTP headers.",
+    "type": "Authentication Bypass",
+    "severity": "Critical",
+    "affected_software": "FortiOS 7.0.0-7.0.6 / 7.2.0-7.2.1",
+    "affected_code": "User-Agent: Report Runner\nForwarded: for=\"[127.0.0.1]:8000\";by=\"[127.0.0.1]:8000\"",
+    "fix_pattern": "Upgrade FortiOS to 7.0.7 or 7.2.2+."
+  },
+  {
+    "cve_id": "CVE-2022-37969",
+    "description": "Windows Common Log File System (CLFS) Driver Elevation of Privilege Vulnerability.",
+    "type": "Privilege Escalation",
+    "severity": "High",
+    "affected_software": "Microsoft Windows 10 / 11 / Server",
+    "affected_code": "// Corrupt CLFS log block header offset for kernel memory write",
+    "fix_pattern": "Apply Microsoft September 2022 Security Update."
+  },
+  {
+    "cve_id": "CVE-2022-26923",
+    "description": "Active Directory Domain Services Elevation of Privilege Vulnerability (Certifried). Allows a domain user to spoof a domain controller identity and request a certificate.",
+    "type": "Privilege Escalation",
+    "severity": "High",
+    "affected_software": "Active Directory Domain Services",
+    "affected_code": "dNSHostName attribute manipulation during machine account creation",
+    "fix_pattern": "Apply May 2022 Windows Security Updates on all Domain Controllers."
+  },
+  {
+    "cve_id": "CVE-2021-36934",
+    "description": "Windows Security Account Manager (SAM) Local Privilege Escalation (HiveNightmare / SeriousSAM). Allows unprivileged users to read system registry hives.",
+    "type": "Information Disclosure",
+    "severity": "High",
+    "affected_software": "Microsoft Windows 10 1809+",
+    "affected_code": "icacls C:\\Windows\\System32\\config\\SAM (BUILTIN\\Users:F)",
+    "fix_pattern": "Apply KB5005355 update and delete shadow copies of SAM/SYSTEM hives."
+  },
+  {
+    "cve_id": "CVE-2020-1350",
+    "description": "Windows DNS Server Remote Code Execution Vulnerability (SIGRed). Heap-based buffer overflow in DNS server during parsing of SIG query responses.",
+    "type": "Remote Code Execution",
+    "severity": "Critical",
+    "affected_software": "Microsoft Windows Server DNS 2008-2019",
+    "affected_code": "DNS RR SIG query response with length > 65535 bytes",
+    "fix_pattern": "Apply July 2020 Windows DNS Security Update."
+  },
+  {
+    "cve_id": "CVE-2019-2725",
+    "description": "Oracle WebLogic Server wls9_async Remote Code Execution Vulnerability. Unauthenticated attacker can execute code via deserialization in wls9_async component.",
+    "type": "Deserialization",
+    "severity": "Critical",
+    "affected_software": "Oracle WebLogic Server 10.3.6 / 12.1.3",
+    "affected_code": "POST /_async/AsyncResponseService HTTP/1.1\n<soapenv:Envelope><soapenv:Body><work:WorkContext>...",
+    "fix_pattern": "Apply Oracle April 2019 Security Patch."
+  },
+  {
+    "cve_id": "CVE-2017-10271",
+    "description": "Oracle WebLogic Server wls-wsat Remote Code Execution Vulnerability. XMLDecoder deserialization allows arbitrary command execution.",
+    "type": "Deserialization",
+    "severity": "Critical",
+    "affected_software": "Oracle WebLogic Server 10.3.6 / 12.1.3",
+    "affected_code": "POST /wls-wsat/CoordinatorPortType HTTP/1.1\n<java version=\"1.8.0_131\" class=\"java.beans.XMLDecoder\">",
+    "fix_pattern": "Apply Oracle October 2017 CPU patch."
+  },
+  {
+    "cve_id": "CVE-2015-1635",
+    "description": "Microsoft Windows HTTP.sys Remote Code Execution Vulnerability (MS15-034). Unauthenticated attacker can send a crafted HTTP request to cause denial of service or code execution.",
+    "type": "Denial of Service",
+    "severity": "Critical",
+    "affected_software": "Microsoft Windows 7 / 8 / Server 2008 / 2012 HTTP.sys",
+    "affected_code": "GET / HTTP/1.1\nHost: target\nRange: bytes=0-18446744073709551615",
+    "fix_pattern": "Install Microsoft Security Bulletin MS15-034 (KB3042553)."
+  },
+  {
+    "cve_id": "CVE-2014-3566",
+    "description": "SSL v3.0 Protocol Vulnerability (POODLE). Allows plaintext recovery of encrypted SSLv3 data packets using block cipher CBC mode padding oracle attack.",
+    "type": "Cryptographic Vulnerability",
+    "severity": "Medium",
+    "affected_software": "SSL 3.0 Protocol / OpenSSL",
+    "affected_code": "// SSL 3.0 CBC mode padding check missing fixed padding byte verification",
+    "fix_pattern": "Disable SSL 3.0 protocol support on web servers and client browsers."
+  },
+  {
+    "cve_id": "CVE-2023-3519",
+    "description": "Citrix ADC and Gateway Remote Code Execution. Allows unauthenticated remote code execution on target system.",
+    "type": "Remote Code Execution",
+    "severity": "Critical",
+    "affected_software": "Citrix ADC / Gateway 13.1 / 13.0",
+    "affected_code": "GET /gwtest/formssso?event=submit HTTP/1.1",
+    "fix_pattern": "Apply Citrix July 2023 Security Bulletin."
+  },
+  {
+    "cve_id": "CVE-2023-28252",
+    "description": "Windows CLFS Driver Elevation of Privilege Vulnerability used in ransomware campaigns.",
+    "type": "Privilege Escalation",
+    "severity": "High",
+    "affected_software": "Microsoft Windows Server 2008-2022",
+    "affected_code": "CLFS base log file record header manipulation",
+    "fix_pattern": "Apply April 2023 Windows Security Update."
+  },
+  {
+    "cve_id": "CVE-2022-26809",
+    "description": "Remote Procedure Call Runtime Remote Code Execution Vulnerability in Windows RPC service.",
+    "type": "Remote Code Execution",
+    "severity": "Critical",
+    "affected_software": "Microsoft Windows RPC Runtime",
+    "affected_code": "RPC bind request buffer length integer overflow",
+    "fix_pattern": "Apply April 2022 Security Update KB5012643."
+  },
+  {
+    "cve_id": "CVE-2020-13943",
+    "description": "Apache OpenMeetings Improper Authentication leading to unauthenticated room access.",
+    "type": "Authentication Bypass",
+    "severity": "High",
+    "affected_software": "Apache OpenMeetings",
+    "affected_code": "SOAP API room login authentication token bypass",
+    "fix_pattern": "Upgrade to Apache OpenMeetings 5.0.0."
+  },
+  {
+    "cve_id": "CVE-2019-10086",
+    "description": "Apache Commons BeanUtils arbitrary code execution via class property manipulation.",
+    "type": "Deserialization",
+    "severity": "Medium",
+    "affected_software": "Apache Commons BeanUtils < 1.9.4",
+    "affected_code": "PropertyUtils.getProperty(bean, \"class.classLoader\")",
+    "fix_pattern": "Upgrade Apache Commons BeanUtils to 1.9.4+."
+  },
+  {
+    "cve_id": "CVE-2018-11776",
+    "description": "Apache Struts 2 Namespace Remote Code Execution Vulnerability via OGNL result manipulation.",
+    "type": "Remote Code Execution",
+    "severity": "Critical",
+    "affected_software": "Apache Struts 2.3.x - 2.5.16",
+    "affected_code": "GET /${(%23_memberAccess[\"DEFAULT_MEMBER_ACCESS\"]) ...}/action HTTP/1.1",
+    "fix_pattern": "Upgrade Apache Struts to 2.3.35 or 2.5.17+."
+  },
+  {
+    "cve_id": "CVE-2024-21887",
+    "description": "Ivanti Connect Secure Command Injection Vulnerability. Allows authenticated administrator to execute arbitrary commands.",
+    "type": "Command Injection",
+    "severity": "Critical",
+    "affected_software": "Ivanti Connect Secure / Policy Secure",
+    "affected_code": "POST /api/v1/totp/user-backup-code/../../system/maintenance/archiving/cloud-direct-test HTTP/1.1",
+    "fix_pattern": "Apply Ivanti Connect Secure patch version 22.6R2.1."
+  },
+  {
+    "cve_id": "CVE-2024-21893",
+    "description": "Ivanti Connect Secure Server-Side Request Forgery Vulnerability in SAML component.",
+    "type": "SSRF",
+    "severity": "High",
+    "affected_software": "Ivanti Connect Secure",
+    "affected_code": "POST /saml/proxy/soap HTTP/1.1",
+    "fix_pattern": "Apply Ivanti Connect Secure patch version 22.6R2.1."
+  },
+  {
+    "cve_id": "CVE-2023-36884",
+    "description": "Microsoft Office and Windows HTML Remote Code Execution Vulnerability used in RomCom campaigns.",
+    "type": "Remote Code Execution",
+    "severity": "High",
+    "affected_software": "Microsoft Office 2013-2021",
+    "affected_code": "docx embedded OLE object linking to external iframe payload",
+    "fix_pattern": "Apply July 2023 Security Update and set FEATURE_BLOCK_CROSS_PROTOCOL_FILE_NAVIGATION registry key."
+  },
+  {
+    "cve_id": "CVE-2023-24932",
+    "description": "Secure Boot Security Feature Bypass Vulnerability used by BlackLotus UEFI bootkit.",
+    "type": "Authentication Bypass",
+    "severity": "High",
+    "affected_software": "Windows UEFI Secure Boot",
+    "affected_code": "Bypassing Secure Boot revocation list using vulnerable signed bootloader",
+    "fix_pattern": "Apply Windows May 2023 Security Update and update revocation list (DBX)."
+  },
+  {
+    "cve_id": "CVE-2022-26925",
+    "description": "Windows LSA Spoofing Vulnerability (PetitPotam variant). Allows unauthenticated attackers to force domain controller NTLM authentication.",
+    "type": "Authentication Bypass",
+    "severity": "High",
+    "affected_software": "Windows LSA / Active Directory",
+    "affected_code": "EfsRpcOpenFileRaw RPC method call targeting DC",
+    "fix_pattern": "Apply May 2022 Windows Security Update."
+  },
+  {
+    "cve_id": "CVE-2023-38545",
+    "description": "curl SOCKS5 heap buffer overflow vulnerability in hostname resolution.",
+    "type": "Buffer Overflow",
+    "severity": "High",
+    "affected_software": "libcurl / curl 7.69.0 - 8.3.0",
+    "affected_code": "socks5_connect() payload buffer overflow",
+    "fix_pattern": "Upgrade curl to 8.4.0."
+  },
+  {
+    "cve_id": "CVE-2023-29489",
+    "description": "cPanel Cross-Site Scripting vulnerability in Ports web service.",
+    "type": "Cross-Site Scripting (XSS)",
+    "severity": "Medium",
+    "affected_software": "cPanel 11.108+",
+    "affected_code": "<script>alert(document.cookie)</script>",
+    "fix_pattern": "Upgrade cPanel to 11.108.0.13+."
+  },
+  {
+    "cve_id": "CVE-2022-22954",
+    "description": "VMware Workspace ONE Access Server-Side Template Injection RCE.",
+    "type": "Server-Side Template Injection",
+    "severity": "Critical",
+    "affected_software": "VMware Workspace ONE Access 21.08",
+    "affected_code": "${'freemarker.template.utility.Execute'?new()('whoami')}",
+    "fix_pattern": "Apply VMware Advisory VMSA-2022-0011."
+  },
+  {
+    "cve_id": "CVE-2022-22963",
+    "description": "Spring Cloud Function SpEL Expression Remote Code Execution.",
+    "type": "Command Injection",
+    "severity": "Critical",
+    "affected_software": "Spring Cloud Function 3.1.6",
+    "affected_code": "spring.cloud.function.routing-expression: T(java.lang.Runtime).getRuntime().exec(\"whoami\")",
+    "fix_pattern": "Upgrade Spring Cloud Function to 3.1.7+."
+  },
+  {
+    "cve_id": "CVE-2021-38647",
+    "description": "Microsoft Open Management Infrastructure Remote Code Execution (OMIGOD).",
+    "type": "Remote Code Execution",
+    "severity": "Critical",
+    "affected_software": "Microsoft OMI for Linux",
+    "affected_code": "Authorization header missing -> executes commands as root",
+    "fix_pattern": "Upgrade OMI to 1.6.8-1+."
+  },
+  {
+    "cve_id": "CVE-2021-31207",
+    "description": "Microsoft Exchange Server Arbitrary File Write Vulnerability.",
+    "type": "Arbitrary File Upload",
+    "severity": "High",
+    "affected_software": "Microsoft Exchange 2013-2019",
+    "affected_code": "Write-ExchangeFile -Path C:\\inetpub\\wwwroot\\shell.aspx",
+    "fix_pattern": "Apply July 2021 Security Update."
+  },
+  {
+    "cve_id": "CVE-2020-10189",
+    "description": "Zoho ManageEngine Desktop Central Java Deserialization RCE.",
+    "type": "Deserialization",
+    "severity": "Critical",
+    "affected_software": "Zoho ManageEngine Desktop Central < 10.0.474",
+    "affected_code": "POST /mdm/fileUpload HTTP/1.1 (Serialized payload)",
+    "fix_pattern": "Upgrade Desktop Central to build 10.0.474."
+  },
+  {
+    "cve_id": "CVE-2020-11651",
+    "description": "SaltStack Salt Master Authentication Bypass and RCE (ClearFuncs).",
+    "type": "Authentication Bypass",
+    "severity": "Critical",
+    "affected_software": "SaltStack Salt < 3000.2",
+    "affected_code": "ClearFuncs._prep_auth_info() bypass",
+    "fix_pattern": "Upgrade SaltStack to 3000.2 or 2019.2.4."
+  },
+  {
+    "cve_id": "CVE-2019-0604",
+    "description": "Microsoft SharePoint Remote Code Execution Vulnerability.",
+    "type": "Deserialization",
+    "severity": "Critical",
+    "affected_software": "Microsoft SharePoint 2010-2019",
+    "affected_code": "XmlSerializer payload in ItemPickers.aspx",
+    "fix_pattern": "Apply Microsoft March 2019 Security Update."
+  },
+  {
+    "cve_id": "CVE-2018-8174",
+    "description": "Microsoft VBScript Engine Remote Code Execution (Double Kill).",
+    "type": "Remote Code Execution",
+    "severity": "Critical",
+    "affected_software": "VBScript Engine in Internet Explorer",
+    "affected_code": "Class_Terminate() use-after-free corruption",
+    "fix_pattern": "Apply May 2018 Windows Security Update."
+  },
+  {
+    "cve_id": "CVE-2018-0101",
+    "description": "Cisco ASA Web Services XML Parser Remote Code Execution.",
+    "type": "Remote Code Execution",
+    "severity": "Critical",
+    "affected_software": "Cisco ASA 9.x / Firepower",
+    "affected_code": "POST /+CSCOE+/webvpn.js HTTP/1.1",
+    "fix_pattern": "Upgrade Cisco ASA software."
+  },
+  {
+    "cve_id": "CVE-2017-8464",
+    "description": "Windows LNK Remote Code Execution Vulnerability (Stuxnet-style LNK flaw).",
+    "type": "Remote Code Execution",
+    "severity": "Critical",
+    "affected_software": "Microsoft Windows 7-10",
+    "affected_code": "Malformed .LNK shortcut binary payload execution",
+    "fix_pattern": "Apply KB4022719 update."
+  },
+  {
+    "cve_id": "CVE-2015-3456",
+    "description": "QEMU Virtual Floppy Disk Controller Buffer Overflow (VENOM).",
+    "type": "Buffer Overflow",
+    "severity": "Critical",
+    "affected_software": "QEMU / KVM / Xen",
+    "affected_code": "fdc_fifo_write() buffer overrun",
+    "fix_pattern": "Apply hypervisor vendor security patch."
+  },
+  {
+    "cve_id": "CVE-2023-34039",
+    "description": "VMware Aria Operations for Logs Unauthenticated Authentication Bypass.",
+    "type": "Authentication Bypass",
+    "severity": "Critical",
+    "affected_software": "VMware Aria Operations 8.x",
+    "affected_code": "Bypassing root token check in SSH daemon configuration",
+    "fix_pattern": "Apply VMware VMSA-2023-0018."
+  },
+  {
+    "cve_id": "CVE-2023-20887",
+    "description": "VMware Aria Operations for Networks Command Injection.",
+    "type": "Command Injection",
+    "severity": "Critical",
+    "affected_software": "VMware Aria Operations for Networks 6.x",
+    "affected_code": "POST /api/app-discovery/create-app HTTP/1.1",
+    "fix_pattern": "Apply VMware VMSA-2023-0012."
   }
 ]
