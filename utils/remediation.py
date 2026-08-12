@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 
 from utils.code_detector import detect_code_patterns
-from utils.syntax_fixer import detect_language, fix_syntax, remaining_syntax_issues
+from utils.syntax_fixer import analyze_syntax, detect_language, fix_syntax, normalize_code, remaining_syntax_issues
 
 
 def _indent_of(line: str) -> str:
@@ -29,45 +29,33 @@ def _fix_sql_injection(code: str, language: str) -> tuple[str, list[str]]:
             ])
             modified = True
             continue
-
         if re.search(r"(?i)(cursor|stmt)\.execute\s*\(", line) and "+" in line:
             pad = _indent_of(line)
             out.append(f'{pad}cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))')
             modified = True
             continue
-
-        if re.search(r"(?i)(select|insert|update|delete).*\+.*[\"']", stripped):
-            pad = _indent_of(line)
-            out.append(f'{pad}// TODO: use parameterized query instead of string concatenation')
-            out.append(f'{pad}// {stripped}')
-            modified = True
-            continue
-
         out.append(line)
 
     if modified:
-        changes.append("Replaced SQL string concatenation with parameterized queries (PreparedStatement / `%s` bindings).")
+        changes.append("Replaced SQL string concatenation with parameterized queries.")
     return "\n".join(out), changes
 
 
 def _fix_command_injection(code: str) -> tuple[str, list[str]]:
     changes: list[str] = []
     updated = code
-
     if re.search(r"os\.system\s*\(", updated):
         updated = re.sub(
             r"os\.system\s*\(([^)]+)\)",
-            r"subprocess.run([cmd], shell=False, check=True)  # was: os.system(\1)",
+            r"subprocess.run([cmd], shell=False, check=True)",
             updated,
         )
         if "import subprocess" not in updated:
             updated = "import subprocess\n" + updated
         changes.append("Replaced `os.system()` with `subprocess.run(..., shell=False)`.")
-
-    if re.search(r"subprocess\.(call|run|Popen)\([^)]*shell\s*=\s*True", updated, re.I):
+    if re.search(r"shell\s*=\s*True", updated, re.I):
         updated = re.sub(r"shell\s*=\s*True", "shell=False", updated, flags=re.I)
         changes.append("Set `shell=False` to prevent shell injection.")
-
     return updated, changes
 
 
@@ -77,13 +65,12 @@ def _fix_eval(code: str) -> tuple[str, list[str]]:
     updated = re.sub(r"eval\s*\(([^)]+)\)", r"ast.literal_eval(\1)", code)
     if "import ast" not in updated:
         updated = "import ast\n" + updated
-    return updated, ["Replaced `eval()` with safe `ast.literal_eval()`."]
+    return updated, ["Replaced `eval()` with `ast.literal_eval()`."]
 
 
 def _fix_path_traversal(code: str) -> tuple[str, list[str]]:
     if not re.search(r"\.\./|\.\.\\\\", code):
         return code, []
-
     updated = code.replace("../", "").replace("..\\", "")
     updated = re.sub(
         r"open\s*\(\s*([^)]+)\)",
@@ -92,17 +79,16 @@ def _fix_path_traversal(code: str) -> tuple[str, list[str]]:
     )
     if "import os" not in updated:
         updated = "import os\n\nBASE_DIR = '/safe/uploads'\n\n" + updated
-    return updated, ["Removed path traversal sequences and sandboxed file paths with `os.path.basename()`."]
+    return updated, ["Sanitized path traversal patterns."]
 
 
 def _fix_deserialization(code: str) -> tuple[str, list[str]]:
     if "pickle.loads(" not in code and "unserialize(" not in code:
         return code, []
     updated = re.sub(r"pickle\.loads\s*\(([^)]+)\)", r"json.loads(\1)", code)
-    updated = re.sub(r"unserialize\s*\(([^)]+)\)", r"json_decode(\1, true)", updated)
-    if "import json" not in updated and "pickle.loads(" in code:
+    if "import json" not in updated:
         updated = "import json\n" + updated
-    return updated, ["Replaced insecure deserialization with safe JSON parsing."]
+    return updated, ["Replaced insecure deserialization with JSON parsing."]
 
 
 def _fix_hardcoded_credentials(code: str) -> tuple[str, list[str]]:
@@ -115,25 +101,38 @@ def _fix_hardcoded_credentials(code: str) -> tuple[str, list[str]]:
     )
     if "import os" not in updated:
         updated = "import os\n" + updated
-    return updated, ["Moved hardcoded secrets to environment variables (`os.environ.get`)."]
+    return updated, ["Moved hardcoded secrets to environment variables."]
 
 
 def generate_remediation(code: str, language: str = "Auto-Detect") -> dict:
-    """Detect vulnerability patterns and apply targeted rule-based fixes."""
-    if not code or not code.strip():
+    """Detect vulnerability + syntax issues and apply fixes. Language always auto-detected from code."""
+    code = normalize_code(code)
+
+    if not code.strip():
         return {
             "original": code,
             "remediated": code,
-            "changes": ["Paste vulnerable code above, then click **Run Remediation**."],
+            "changes": ["Paste code above, then click **Run Remediation**."],
             "has_fix": False,
+            "detected_types": [],
+            "detected_language": "Auto-Detect",
+            "remaining_syntax_issues": [],
+            "syntax_issues_before": [],
         }
 
-    detection = detect_code_patterns(code)
-    remediated = code
+    original_code = code
     changes: list[str] = []
 
+    # Phase 1: Syntax fixes (always first, language inferred from code — ignore sidebar hint)
+    syntax_report = analyze_syntax(code, "Auto-Detect")
+    remediated = syntax_report["fixed_code"]
+    if syntax_report["fixes_applied"]:
+        changes.extend([f"[Syntax] {c}" for c in syntax_report["fixes_applied"]])
+
+    # Phase 2: Security fixes
+    detection = detect_code_patterns(code)
     fix_map = {
-        "SQL Injection": lambda c: _fix_sql_injection(c, language),
+        "SQL Injection": lambda c: _fix_sql_injection(c, "Auto-Detect"),
         "Command Injection": _fix_command_injection,
         "Remote Code Execution": _fix_eval,
         "Path Traversal": _fix_path_traversal,
@@ -150,38 +149,36 @@ def generate_remediation(code: str, language: str = "Auto-Detect") -> dict:
     for vuln_type in types_to_fix:
         fn = fix_map.get(vuln_type)
         if fn:
-            remediated, new_changes = fn(remediated)
-            changes.extend(new_changes)
+            remediated, sec_changes = fn(remediated)
+            changes.extend([f"[Security] {c}" for c in sec_changes])
 
     if "eval(" in code and "Remote Code Execution" not in detection["detected_types"]:
-        remediated, new_changes = _fix_eval(remediated)
-        changes.extend(new_changes)
+        remediated, ev = _fix_eval(remediated)
+        changes.extend([f"[Security] {c}" for c in ev])
 
-    # Syntax auto-fix (cout<<<, missing semicolons, etc.)
-    remediated, syntax_changes = fix_syntax(remediated, language)
-    changes.extend(syntax_changes)
+    # Phase 3: Re-run syntax pass if security edits changed the code
+    if remediated != syntax_report["fixed_code"]:
+        remediated, extra = fix_syntax(remediated, "Auto-Detect")
+        changes.extend([f"[Syntax] {c}" for c in extra])
 
-    # Deduplicate while preserving order
     changes = list(dict.fromkeys(changes))
-    has_fix = remediated.strip() != code.strip()
-    detected_lang = detect_language(code, language)
-    syntax_issues = remaining_syntax_issues(remediated, language)
+    has_fix = remediated.strip() != original_code.strip()
+    syntax_issues = remaining_syntax_issues(remediated, "Auto-Detect")
 
-    if not has_fix and not changes:
-        changes = [
-            "No auto-fixable security or syntax issues found. "
-            "Supported fixes: SQL injection, `os.system()`, `eval()`, path traversal, "
-            "hardcoded secrets, `cout<<<`/`cin>>>`, missing semicolons."
-        ]
-    elif syntax_issues and has_fix:
-        changes.append(f"Note: {len(syntax_issues)} issue(s) may still need manual review.")
+    if not has_fix:
+        if syntax_report["issues_before"]:
+            changes = [f"[Syntax] Detected: {'; '.join(syntax_report['issues_before'][:2])}"]
+            changes.append("Could not auto-fix — please check the code manually.")
+        elif not changes:
+            changes = ["No fixable issues detected in this code."]
 
     return {
-        "original": code,
+        "original": original_code,
         "remediated": remediated,
         "changes": changes,
         "has_fix": has_fix,
         "detected_types": detection["detected_types"],
-        "detected_language": detected_lang,
+        "detected_language": syntax_report["language"],
         "remaining_syntax_issues": syntax_issues,
+        "syntax_issues_before": syntax_report["issues_before"],
     }

@@ -2,7 +2,7 @@
 CodeVigil — Cyber Security Vulnerability Intelligence & Radar System
 ====================================================================
 A state-of-the-art SOC dashboard for scanning code, analyzing CVEs,
-detecting language-aware syntax bugs, and generating instant AI code remediations.
+detecting CVEs and generating AI code remediations.
 """
 
 import streamlit as st
@@ -10,7 +10,7 @@ import json
 import time
 import sys
 import re
-import ast
+import importlib
 import pandas as pd
 from pathlib import Path
 
@@ -25,6 +25,14 @@ from ml_engine.severity_predictor import SeverityPredictor
 from ml_engine.fix_recommender import FixRecommender
 from utils.metrics import precision_at_k, recall_at_k, f1_at_k, mean_reciprocal_rank
 from utils.code_detector import detect_code_patterns
+
+# Hot-reload remediation modules so Streamlit picks up changes without full restart
+import utils.syntax_fixer as _syntax_fixer
+import utils.keyword_fixes as _keyword_fixes
+import utils.remediation as _remediation
+importlib.reload(_keyword_fixes)
+importlib.reload(_syntax_fixer)
+importlib.reload(_remediation)
 from utils.remediation import generate_remediation
 
 LANGUAGE_OPTIONS = [
@@ -322,92 +330,6 @@ with st.spinner("⚡ Initializing CodeVigil Intelligence Matrix..."):
 
 
 # ─────────────────────────────────────────────
-# LANGUAGE-AWARE AST & SYNTAX BUG CHECKER
-# ─────────────────────────────────────────────
-def check_code_syntax(code: str, language: str = "Auto-Detect") -> dict:
-    """Performs language-aware AST & static syntax analysis without misapplying Python parser to C++/Java."""
-    # Detect language if set to Auto-Detect
-    detected_lang = language
-    if language == "Auto-Detect":
-        if "#include" in code or "using namespace" in code or re.search(r"\bcout\s*<", code) or re.search(r"\bcin\s*>"):
-            detected_lang = "C / C++"
-        elif "public class" in code or "System.out.print" in code or "public static void main" in code:
-            detected_lang = "Java"
-        elif "def " in code or "import " in code or "print(" in code:
-            detected_lang = "Python"
-        elif "function " in code or "console.log" in code or "const " in code or "let " in code:
-            detected_lang = "JavaScript / TypeScript"
-        elif "<?php" in code or "$_" in code:
-            detected_lang = "PHP"
-
-    syntax_errors = []
-    logic_warnings = []
-
-    # Bracket matching (All languages)
-    if code.count("{") != code.count("}"):
-        syntax_errors.append(f"❌ **Syntax Error:** Unmatched curly braces `{{}}` (Found {code.count('{')} `{{` and {code.count('}')} `}}`).")
-    if code.count("(") != code.count(")"):
-        syntax_errors.append(f"❌ **Syntax Error:** Unmatched parentheses `()` (Found {code.count('(')} `(` and {code.count(')')} `)`).")
-    if code.count("[") != code.count("]"):
-        syntax_errors.append(f"❌ **Syntax Error:** Unmatched square brackets `[]` (Found {code.count('[')} `[` and {code.count(']')} `]`).")
-
-    # 1. PYTHON
-    if detected_lang == "Python":
-        try:
-            ast.parse(code)
-        except SyntaxError as e:
-            syntax_errors.append(f"❌ **Python Syntax Error (Line {e.lineno}, Col {e.offset}):** `{e.msg}` in line: `{e.text.strip() if e.text else ''}`")
-
-        if re.search(r"==\s*None|!=\s*None", code):
-            logic_warnings.append("⚠️ **Python Idiom Warning:** Use `is None` or `is not None` instead of `== None` comparison.")
-        if "open(" in code and "with open(" not in code and ".close()" not in code:
-            logic_warnings.append("⚠️ **Resource Leak Warning:** File `open()` without `with` context manager or `.close()` call.")
-
-    # 2. C / C++
-    elif detected_lang == "C / C++":
-        if "int main" in code and "return" not in code:
-            logic_warnings.append("⚠️ **C/C++ Standard Warning:** `main()` function missing explicit `return` statement.")
-        if re.search(r"\bgets\s*\(", code):
-            syntax_errors.append("❌ **Dangerous Function Error:** `gets()` is obsolete and buffer overflow prone. Use `fgets()`.")
-        if re.search(r"\bstrcpy\s*\(", code):
-            logic_warnings.append("⚠️ **Buffer Safety Warning:** `strcpy()` is unsafe. Consider using `strncpy()` or `std::string`.")
-
-        lines = code.split("\n")
-        for i, line in enumerate(lines, 1):
-            l = line.strip()
-            if l and not l.startswith("#") and not l.startswith("//") and not l.endswith(";") and not l.endswith("{") and not l.endswith("}"):
-                if (l.startswith("cout") or l.startswith("cin") or l.startswith("return") or "=" in l) and not l.startswith("using") and not l.startswith("int main"):
-                    syntax_errors.append(f"❌ **Syntax Error (Line {i}):** Missing trailing semicolon `;` in `{l}`")
-
-    # 3. JAVA
-    elif detected_lang == "Java":
-        if "class" in code and "public static void main" not in code:
-            logic_warnings.append("⚠️ **Java Structure Warning:** Class missing `public static void main(String[] args)` entry point.")
-        if re.search(r"System\.out\.print.*?\+.*?\"", code):
-            logic_warnings.append("⚠️ **Performance Warning:** String concatenation inside loop or print; consider `StringBuilder`.")
-        lines = code.split("\n")
-        for i, line in enumerate(lines, 1):
-            l = line.strip()
-            if l and not l.startswith("//") and not l.startswith("package") and not l.startswith("import") and not l.endswith(";") and not l.endswith("{") and not l.endswith("}"):
-                if ("=" in l or l.startswith("System.out") or l.startswith("return")) and not l.startswith("public") and not l.startswith("private"):
-                    syntax_errors.append(f"❌ **Syntax Error (Line {i}):** Missing trailing semicolon `;` in `{l}`")
-
-    # 4. JAVASCRIPT / TYPESCRIPT
-    elif detected_lang == "JavaScript / TypeScript":
-        if "eval(" in code:
-            logic_warnings.append("⚠️ **Security Warning:** `eval()` executes arbitrary strings. Use safer parsers.")
-        if re.search(r"\bvar\b", code):
-            logic_warnings.append("⚠️ **Modern JS Warning:** Prefer `let` or `const` over `var` block-scoping.")
-
-    return {
-        "language": detected_lang,
-        "syntax_errors": syntax_errors,
-        "logic_warnings": logic_warnings,
-        "is_valid": len(syntax_errors) == 0
-    }
-
-
-# ─────────────────────────────────────────────
 # SIDEBAR
 # ─────────────────────────────────────────────
 with st.sidebar:
@@ -427,10 +349,6 @@ with st.sidebar:
     if st.button("◧ Main Terminal Radar", use_container_width=True):
         st.session_state.active_view = "main"
         st.session_state.selected_cve = None
-        st.rerun()
-
-    if st.button("🐛 Syntax Bug Detector", use_container_width=True):
-        st.session_state.active_view = "bug_detection"
         st.rerun()
 
     if st.button("🤖 AI Code Remediation", use_container_width=True):
@@ -566,124 +484,89 @@ if st.session_state.active_view == "cve_detail" and st.session_state.selected_cv
 
 
 # ─────────────────────────────────────────────
-# VIEW 2: SYNTAX BUG DETECTOR (Language-Aware AST & Static Analysis)
-# ─────────────────────────────────────────────
-elif st.session_state.active_view == "bug_detection":
-    if st.button("← Back to Main Dashboard"):
-        st.session_state.active_view = "main"
-        st.rerun()
-        
-    st.markdown("""
-    <div style="font-family: 'JetBrains Mono', monospace; margin: 10px 0 20px 0;">
-        <div style="font-size:12px; color:#4ade80;">codevigil@bugs:~$ ast_parser --check</div>
-        <h1 style="font-size:32px; font-weight:800; margin:4px 0;">🐛 Interactive Syntax & Logic Bug Detector</h1>
-        <p style="color:#849385;">Performs language-aware AST and static syntax analysis (Python, C/C++, Java, JS, PHP) on your code.</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    col_lang_b, col_b_space = st.columns([1, 2])
-    with col_lang_b:
-        selected_lang_bug = st.selectbox(
-            "🌐 Programming Language:",
-            LANGUAGE_OPTIONS,
-            index=LANGUAGE_OPTIONS.index(st.session_state.selected_language) if st.session_state.selected_language in LANGUAGE_OPTIONS else 0,
-        )
-        st.session_state.selected_language = selected_lang_bug
-        
-    code_to_check = st.text_area(
-        "Code to analyze for syntax bugs (Auto-Synced from Main Terminal):",
-        height=180,
-        value=st.session_state.code_query
-    )
-    st.session_state.code_query = code_to_check
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("### 📊 Language-Aware AST & Syntax Inspection Results")
-    
-    # Execute Language-Aware Syntax Analysis
-    syntax_result = check_code_syntax(code_to_check, selected_lang_bug)
-    
-    st.markdown(f"**Detected Engine Target:** `{syntax_result['language']}`")
-    
-    if syntax_result["syntax_errors"]:
-        st.markdown("#### ❌ Syntax Errors Detected:")
-        for err in syntax_result["syntax_errors"]:
-            st.error(err)
-            
-    if syntax_result["logic_warnings"]:
-        st.markdown("#### ⚠️ Code Quality & Logic Warnings:")
-        for warn in syntax_result["logic_warnings"]:
-            st.warning(warn)
-
-    if syntax_result["is_valid"] and not syntax_result["logic_warnings"]:
-        st.success(f"✅ **{syntax_result['language']} AST & Syntax Check:** Code compiles cleanly with valid syntax!")
-
-
-# ─────────────────────────────────────────────
-# VIEW 3: AI CODE REMEDIATION ENGINE (100% Automatic, Zero Key Required)
+# VIEW 2: AI CODE REMEDIATION ENGINE
 # ─────────────────────────────────────────────
 elif st.session_state.active_view == "security_audit":
     if st.button("← Back to Main Dashboard"):
         st.session_state.active_view = "main"
         st.rerun()
-        
+
     st.markdown("""
     <div style="font-family: 'JetBrains Mono', monospace; margin: 10px 0 20px 0;">
         <div style="font-size:12px; color:#4ade80;">codevigil@ai-remediation:~$ engine --auto-fix</div>
         <h1 style="font-size:32px; font-weight:800; margin:4px 0;">🤖 AI Code Auto-Remediation & Fixation Engine</h1>
-        <p style="color:#849385;">Automatically carries over code from the main screen and generates instant secure rewrites with zero key requirements.</p>
+        <p style="color:#849385;">Fixes misspelled keywords, symbols, syntax errors, and security vulnerabilities automatically.</p>
     </div>
     """, unsafe_allow_html=True)
-    
-    input_vuln_code = st.text_area(
-        "Vulnerable Code Input (Auto-Synced from Main Terminal):",
-        height=160,
-        value=st.session_state.code_query
-    )
+
+    # Sync code from main dashboard on first visit to this view
+    if "remediation_input" not in st.session_state:
+        st.session_state.remediation_input = st.session_state.code_query
+
+    with st.form("remediation_form", clear_on_submit=False):
+        st.text_area(
+            "Code to fix (syntax + security):",
+            height=220,
+            key="remediation_input",
+        )
+        col_btn1, col_btn2 = st.columns([1, 1])
+        with col_btn1:
+            run_fix = st.form_submit_button("▶ Run Remediation", use_container_width=True, type="primary")
+        with col_btn2:
+            clear_fix = st.form_submit_button("Clear Results", use_container_width=True)
+
+    input_vuln_code = st.session_state.remediation_input
     st.session_state.code_query = input_vuln_code
 
-    run_fix = st.button("▶ Run Remediation", use_container_width=True, type="primary")
-    
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("### 🛠️ AI Remediation Results")
-    
-    if run_fix:
-        st.session_state.remediation_result = generate_remediation(
-            input_vuln_code, st.session_state.selected_language
-        )
+    if clear_fix:
+        st.session_state.pop("remediation_result", None)
+        st.rerun()
 
-    fix_result = st.session_state.get("remediation_result")
-    if not fix_result:
-        st.info("Paste vulnerable code above and click **Run Remediation**.")
+    fix_result = None
+    if run_fix:
+        if input_vuln_code.strip():
+            fix_result = generate_remediation(input_vuln_code, "Auto-Detect")
+            st.session_state.remediation_result = fix_result
+        else:
+            st.session_state.pop("remediation_result", None)
+            st.warning("Please paste some code first.")
     else:
+        fix_result = st.session_state.get("remediation_result")
+
+    st.markdown("### 🛠️ AI Remediation Results")
+
+    if not fix_result:
+        st.info("Paste your code above and click **Run Remediation**.")
+    else:
+        lang = fix_result.get("detected_language", "Auto-Detect")
+        if lang != "Auto-Detect":
+            st.markdown(f"**Detected language:** `{lang}`")
+        if fix_result.get("syntax_issues_before"):
+            st.markdown(f"**Syntax issues found:** {len(fix_result['syntax_issues_before'])}")
         if fix_result.get("detected_types"):
-            st.markdown(f"**Detected vulnerability patterns:** {', '.join(fix_result['detected_types'])}")
-        if fix_result.get("detected_language") and fix_result["detected_language"] != "Auto-Detect":
-            st.markdown(f"**Detected language:** `{fix_result['detected_language']}`")
+            st.markdown(f"**Security patterns:** {', '.join(fix_result['detected_types'])}")
+
         if fix_result.get("has_fix"):
-            st.success("Remediation applied — review the fixed code below.")
-        elif fix_result.get("changes"):
-            st.warning("No code changes were applied. See summary for details.")
-    
-    if fix_result:
+            st.success("Fixes applied — compare original vs remediated code below.")
+        else:
+            st.warning("No changes applied — see summary below.")
+
         col_orig, col_fix = st.columns(2)
         with col_orig:
-            st.markdown("<div class='feature-card-staggered' style='border-top:3px solid #f87171;'>", unsafe_allow_html=True)
             st.markdown("❌ **Original Code:**")
-            st.code(fix_result["original"], language="text")
-            st.markdown("</div>", unsafe_allow_html=True)
+            st.code(fix_result["original"], language="cpp" if lang == "C / C++" else "python")
 
         with col_fix:
-            st.markdown("<div class='feature-card-staggered' style='border-top:3px solid #4ade80;'>", unsafe_allow_html=True)
-            st.markdown("✅ **AI Remediated Safe Code:**")
-            st.code(fix_result["remediated"], language="text")
-            st.markdown("</div>", unsafe_allow_html=True)
+            label = "✅ **Remediated Code:**" if fix_result.get("has_fix") else "⚠️ **Remediated Code (unchanged):**"
+            st.markdown(label)
+            st.code(fix_result["remediated"], language="cpp" if lang == "C / C++" else "python")
 
-        st.markdown("#### 📝 AI Security Refactoring Summary:")
-        for chg in fix_result["changes"]:
+        st.markdown("#### 📝 Fix Summary:")
+        for chg in fix_result.get("changes", []):
             st.markdown(f"- {chg}")
+
         if fix_result.get("remaining_syntax_issues"):
-            st.markdown("#### ⚠️ Remaining syntax issues:")
+            st.markdown("#### ⚠️ Remaining issues:")
             for issue in fix_result["remaining_syntax_issues"]:
                 st.markdown(f"- {issue}")
 
@@ -796,43 +679,119 @@ elif st.session_state.active_view == "about_vulns":
     if st.button("← Back to Main Dashboard"):
         st.session_state.active_view = "main"
         st.rerun()
-        
+
     st.markdown("""
     <div style="font-family: 'JetBrains Mono', monospace; margin: 10px 0 20px 0;">
-        <div style="font-size:12px; color:#4ade80;">codevigil@docs:~$ cat vulnerabilities_handbook.md</div>
-        <h1 style="font-size:32px; font-weight:800; margin:4px 0;">📚 Software Vulnerabilities Knowledge Hub</h1>
-        <p style="color:#849385;">Comprehensive guide to CVEs, OWASP Top 10, CVSS scoring, and security mitigations.</p>
+        <div style="font-size:12px; color:#4ade80;">codevigil@docs:~$ learn --beginner</div>
+        <h1 style="font-size:32px; font-weight:800; margin:4px 0;">📚 What Are Vulnerabilities?</h1>
+        <p style="color:#849385;">A simple guide — no security background needed.</p>
     </div>
     """, unsafe_allow_html=True)
-    
-    tab1, tab2, tab3 = st.tabs(["🔥 OWASP Top 10", "🎯 CVSS Severity Matrix", "📜 Famous CVE Case Studies"])
-    
+
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "🤔 Basics", "🔥 Common Attack Types", "🎯 Severity Levels", "📜 Real Examples"
+    ])
+
     with tab1:
         st.markdown("""
-        ### OWASP Top 10 Web Application Security Risks
-        1. **A01:2021 – Broken Access Control:** Unauthorized elevation of privilege and access to user accounts.
-        2. **A02:2021 – Cryptographic Failures:** Sensitive data exposure due to weak encryption algorithms (e.g. MD5, SSLv3).
-        3. **A03:2021 – Injection:** SQL, Command, and LDAP injection from untrusted input concatenation.
-        4. **A04:2021 – Insecure Design:** Flaws in architectural design and lack of threat modeling.
-        5. **A05:2021 – Security Misconfiguration:** Default admin credentials, debug modes enabled in production.
-        6. **A06:2021 – Vulnerable and Outdated Components:** Using libraries with known CVEs (e.g. Log4j 2.14.1).
+        ### What is a vulnerability?
+        A **vulnerability** is a weakness in software that lets an attacker do something they shouldn't —
+        like steal data, crash a system, or take control of a server.
+
+        Think of it like a **broken lock on a door**. The app still runs, but someone with the right trick
+        can get in.
+
+        ### What is a CVE?
+        **CVE** (Common Vulnerabilities and Exposures) is a public ID for a known bug, e.g. `CVE-2021-44228`.
+        When researchers find a serious flaw, it gets a CVE number so everyone can track and patch it.
+
+        ### What is CodeVigil doing?
+        When you paste code, CodeVigil:
+        1. **Matches** your code against a database of known CVEs
+        2. **Predicts** what type of vulnerability it might be (SQL injection, RCE, etc.)
+        3. **Suggests fixes** via AI Remediation
+
+        ### Key terms (quick glossary)
+        | Term | Plain English |
+        |------|---------------|
+        | **Exploit** | The trick/hack that uses the weakness |
+        | **Patch** | A software update that fixes the hole |
+        | **Attack surface** | Any part of your app a hacker can reach |
+        | **Input validation** | Checking user data before using it |
+        | **RCE** | Remote Code Execution — hacker runs code on your server |
+        | **SQL Injection** | Tricking a database query with malicious input |
         """)
-        
+
     with tab2:
         st.markdown("""
-        ### CVSS v3.1 Severity Rating Scale
-        - **CRITICAL (9.0 – 10.0):** Exploit allows unauthenticated remote code execution or full system takeovers.
-        - **HIGH (7.0 – 8.9):** Allows elevated privilege escalation or significant confidential data leakage.
-        - **MEDIUM (4.0 – 6.9):** Requires specific user interaction or complex conditions to trigger.
-        - **LOW (0.1 – 3.9):** Minor information disclosure without system compromise.
+        ### The most common web app vulnerabilities (OWASP Top 10 — simplified)
+
+        **1. Broken Access Control**
+        Users can access pages or data they shouldn't. *Example: changing `/user/5` to `/user/1` in the URL to see someone else's profile.*
+
+        **2. Cryptographic Failures**
+        Sensitive data (passwords, credit cards) stored or sent unsafely. *Example: storing passwords in plain text instead of hashing.*
+
+        **3. Injection (SQL, Command, etc.)**
+        Attacker sends malicious input that gets executed as code. *Example: `' OR 1=1 --` in a login form bypasses authentication.*
+
+        **4. Insecure Design**
+        The app was built without thinking about security from the start. *Example: no rate limiting on login → unlimited password guesses.*
+
+        **5. Security Misconfiguration**
+        Default passwords, debug mode on in production, open cloud storage buckets.
+
+        **6. Outdated Components**
+        Using old libraries with known bugs. *Example: Log4j 2.14.1 (Log4Shell) — a logging library with a critical RCE flaw.*
+
+        **7. Authentication Failures**
+        Weak login, session, or password recovery. *Example: no lockout after 1000 failed login attempts.*
+
+        **8. Data Integrity Failures**
+        Trusting unverified data (e.g. unsigned software updates, insecure deserialization).
+
+        **9. Logging & Monitoring Failures**
+        Attacks happen but nobody notices because logs aren't checked.
+
+        **10. Server-Side Request Forgery (SSRF)**
+        Attacker makes your server fetch internal URLs it shouldn't access.
         """)
-        
+
     with tab3:
         st.markdown("""
-        ### Notable Cybersecurity Vulnerabilities
-        - **CVE-2021-44228 (Log4Shell):** JNDI LDAP injection in Apache Log4j allowing unauthenticated RCE.
-        - **CVE-2014-0160 (Heartbleed):** OpenSSL memory leak exposing secret keys and credentials.
-        - **CVE-2017-0144 (EternalBlue):** SMBv1 buffer overflow exploited by WannaCry ransomware.
+        ### How bad is it? (CVSS Severity — simplified)
+
+        Every CVE gets a **severity score** from 0 to 10. CodeVigil labels them:
+
+        | Level | Score | What it means for you |
+        |-------|-------|----------------------|
+        | 🔴 **Critical** | 9.0 – 10.0 | Fix **immediately**. Often allows full system takeover with no login. |
+        | 🟠 **High** | 7.0 – 8.9 | Fix within days. Serious data leak or privilege escalation. |
+        | 🟡 **Medium** | 4.0 – 6.9 | Fix when you can. Needs some conditions or user action to exploit. |
+        | 🟢 **Low** | 0.1 – 3.9 | Minor issue. Limited impact, but still worth patching. |
+
+        **Rule of thumb:** If CodeVigil flags **Critical** or **High**, treat it as urgent.
+        """)
+
+    with tab4:
+        st.markdown("""
+        ### Famous vulnerabilities (stories, not jargon)
+
+        **Log4Shell (CVE-2021-44228) — 2021**
+        A logging library (Log4j) let attackers run any code by sending a special string in a chat message or HTTP header.
+        *Impact:* Millions of servers affected overnight. *Lesson:* Even boring utility libraries can be dangerous.
+
+        **Heartbleed (CVE-2014-0160) — 2014**
+        A bug in OpenSSL (used for HTTPS locks) leaked server memory — including passwords and private keys.
+        *Impact:* ~17% of all secure websites were affected. *Lesson:* Encryption libraries must be flawless.
+
+        **EternalBlue (CVE-2017-0144) — 2017**
+        A Windows networking bug exploited by WannaCry ransomware to spread across hospitals and companies worldwide.
+        *Impact:* 200,000+ machines encrypted in days. *Lesson:* Patch old systems — unpatched Windows SMB was the entry point.
+
+        **SQL Injection — ongoing**
+        Not one CVE, but the #1 web bug for decades. Attacker manipulates a database query through a web form.
+        *Fix:* Always use **parameterized queries** (prepared statements), never string concatenation.
         """)
 
 
@@ -951,60 +910,49 @@ else:
     st.markdown("<div style='font-family: \"JetBrains Mono\", monospace; font-size:12px; color:#4ade80; text-transform:uppercase; letter-spacing:0.12em; margin-bottom:6px;'>system capabilities</div>", unsafe_allow_html=True)
     st.markdown("<h2 style='font-size:24px; margin:0 0 16px 0;'>Interactive Security Modules</h2>", unsafe_allow_html=True)
     
-    fb1, fb2, fb3, fb4, fb5 = st.columns(5)
-    
+    fb1, fb2, fb3, fb4 = st.columns(4)
+
     with fb1:
         st.markdown("""
-        <div class="feature-card-staggered" style="min-height: 140px; border-top: 3px solid #38bdf8;">
-            <div style="font-family:'JetBrains Mono'; font-size:14px; font-weight:700; color:#38bdf8; margin-bottom:6px;">01. Bug Detection</div>
-            <p style="font-size:12px; color:#849385; margin:0; line-height:1.4;">Language-aware AST syntax & logic error inspection.</p>
+        <div class="feature-card-staggered" style="min-height: 140px; border-top: 3px solid #4ade80;">
+            <div style="font-family:'JetBrains Mono'; font-size:14px; font-weight:700; color:#4ade80; margin-bottom:6px;">01. About Vulns</div>
+            <p style="font-size:12px; color:#849385; margin:0; line-height:1.4;">Plain-English guide to what vulnerabilities are.</p>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("Inspect Bugs", key="btn_b1", use_container_width=True):
-            st.session_state.active_view = "bug_detection"
+        if st.button("Learn Vulns", key="btn_b1", use_container_width=True):
+            st.session_state.active_view = "about_vulns"
             st.rerun()
 
     with fb2:
         st.markdown("""
-        <div class="feature-card-staggered" style="min-height: 165px; border-top: 3px solid #4ade80;">
-            <div style="font-family:'JetBrains Mono'; font-size:14px; font-weight:700; color:#4ade80; margin-bottom:6px;">02. About Vulns</div>
-            <p style="font-size:12px; color:#849385; margin:0; line-height:1.4;">OWASP Top 10 & CVSS scoring matrix.</p>
+        <div class="feature-card-staggered" style="min-height: 165px; border-top: 3px solid #facc15;">
+            <div style="font-family:'JetBrains Mono'; font-size:14px; font-weight:700; color:#facc15; margin-bottom:6px;">02. Compare Algos</div>
+            <p style="font-size:12px; color:#849385; margin:0; line-height:1.4;">Compare TF-IDF, BM25 & Hybrid metrics.</p>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("Learn Vulns", key="btn_b2", use_container_width=True):
-            st.session_state.active_view = "about_vulns"
+        if st.button("Compare Algos", key="btn_b2", use_container_width=True):
+            st.session_state.active_view = "compare_algos"
             st.rerun()
 
     with fb3:
         st.markdown("""
-        <div class="feature-card-staggered" style="min-height: 190px; border-top: 3px solid #facc15;">
-            <div style="font-family:'JetBrains Mono'; font-size:14px; font-weight:700; color:#facc15; margin-bottom:6px;">03. Compare Algos</div>
-            <p style="font-size:12px; color:#849385; margin:0; line-height:1.4;">Compare TF-IDF, BM25 & Hybrid metrics.</p>
+        <div class="feature-card-staggered" style="min-height: 165px; border-top: 3px solid #c084fc;">
+            <div style="font-family:'JetBrains Mono'; font-size:14px; font-weight:700; color:#c084fc; margin-bottom:6px;">03. AI Remediation</div>
+            <p style="font-size:12px; color:#849385; margin:0; line-height:1.4;">Fix syntax, keywords, symbols & security issues.</p>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("Compare Algos", key="btn_b3", use_container_width=True):
-            st.session_state.active_view = "compare_algos"
+        if st.button("AI Remediation", key="btn_b3", use_container_width=True):
+            st.session_state.active_view = "security_audit"
             st.rerun()
 
     with fb4:
         st.markdown("""
-        <div class="feature-card-staggered" style="min-height: 165px; border-top: 3px solid #c084fc;">
-            <div style="font-family:'JetBrains Mono'; font-size:14px; font-weight:700; color:#c084fc; margin-bottom:6px;">04. AI Auto-Remediation</div>
-            <p style="font-size:12px; color:#849385; margin:0; line-height:1.4;">Automated code rewrites & patch diffs.</p>
-        </div>
-        """, unsafe_allow_html=True)
-        if st.button("AI Remediation", key="btn_b4", use_container_width=True):
-            st.session_state.active_view = "security_audit"
-            st.rerun()
-
-    with fb5:
-        st.markdown("""
         <div class="feature-card-staggered" style="min-height: 140px; border-top: 3px solid #f87171;">
-            <div style="font-family:'JetBrains Mono'; font-size:14px; font-weight:700; color:#f87171; margin-bottom:6px;">05. Export Reports</div>
+            <div style="font-family:'JetBrains Mono'; font-size:14px; font-weight:700; color:#f87171; margin-bottom:6px;">04. Export Reports</div>
             <p style="font-size:12px; color:#849385; margin:0; line-height:1.4;">Download JSON, CSV, HTML & Markdown.</p>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("Export Reports", key="btn_b5", use_container_width=True):
+        if st.button("Export Reports", key="btn_b4", use_container_width=True):
             st.session_state.active_view = "export_report"
             st.rerun()
 
@@ -1066,7 +1014,7 @@ else:
         results = [r for r in results if r["type"] in type_filter]
 
     if active_q and not detection["detected_types"] and not results:
-        st.warning("No matching CVEs found above the relevance threshold. This does **not** confirm your code is safe — review manually or use Bug Detector / AI Remediation.")
+        st.warning("No matching CVEs found above the relevance threshold. This does **not** confirm your code is safe — review manually or use **AI Remediation**.")
     elif results:
         pred_type, type_conf = models["type_classifier"].predict(boosted_q)
         pred_sev, sev_conf = models["severity_predictor"].predict(boosted_q)
