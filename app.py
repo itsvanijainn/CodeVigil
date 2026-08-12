@@ -25,6 +25,11 @@ from ml_engine.severity_predictor import SeverityPredictor
 from ml_engine.fix_recommender import FixRecommender
 from utils.metrics import precision_at_k, recall_at_k, f1_at_k, mean_reciprocal_rank
 from utils.code_detector import detect_code_patterns
+from utils.remediation import generate_remediation
+
+LANGUAGE_OPTIONS = [
+    "Auto-Detect", "C / C++", "Java", "Python", "JavaScript / TypeScript", "PHP",
+]
 
 
 # ─────────────────────────────────────────────
@@ -324,7 +329,7 @@ def check_code_syntax(code: str, language: str = "Auto-Detect") -> dict:
     # Detect language if set to Auto-Detect
     detected_lang = language
     if language == "Auto-Detect":
-        if "#include" in code or "using namespace" in code or "cout<<" in code or "cin>>" in code:
+        if "#include" in code or "using namespace" in code or re.search(r"\bcout\s*<", code) or re.search(r"\bcin\s*>"):
             detected_lang = "C / C++"
         elif "public class" in code or "System.out.print" in code or "public static void main" in code:
             detected_lang = "Java"
@@ -399,73 +404,6 @@ def check_code_syntax(code: str, language: str = "Auto-Detect") -> dict:
         "syntax_errors": syntax_errors,
         "logic_warnings": logic_warnings,
         "is_valid": len(syntax_errors) == 0
-    }
-
-
-# ─────────────────────────────────────────────
-# INSTANT AI CODE AUTO-REMEDIATION ENGINE (100% Automatic, Zero Key Required)
-# ─────────────────────────────────────────────
-def generate_ai_remediation(code: str) -> dict:
-    """Generates instant automated AI code remediation diffs and patches without needing any API key."""
-    remediated_code = code
-    changes_made = []
-    vuln_detected = False
-
-    # 1. SQL Injection Fix
-    if re.search(r"(?i)(select|insert|update|delete).*?\+.*?[\"']", code) or "executeQuery(" in code or "execute(" in code:
-        vuln_detected = True
-        remediated_code = re.sub(
-            r"executeQuery\(.*?[\"'].*?\+.*?\)",
-            "prepareStatement(\"SELECT * FROM users WHERE username = ?\");\n    stmt.setString(1, username);\n    rs = stmt.executeQuery()",
-            code
-        )
-        remediated_code = re.sub(
-            r"execute\(.*?[\"'].*?\+.*?\)",
-            "execute(\"SELECT * FROM users WHERE id = %s\", (user_input,))",
-            remediated_code
-        )
-        changes_made.append("Replaced unsafe string concatenation in database query with parameterized PreparedStatement (`?` / `%s` bindings).")
-
-    # 2. Command Injection Fix
-    if "os.system(" in code or "subprocess.call(" in code or "exec(" in code:
-        vuln_detected = True
-        remediated_code = re.sub(r"os\.system\(.*?\)", "subprocess.run([\"ls\", \"-l\", os.path.basename(sanitized_input)], check=True)", code)
-        remediated_code = re.sub(r"shell=True", "shell=False", remediated_code)
-        changes_made.append("Replaced shell invocation (`os.system` / `shell=True`) with safe array argument passing (`subprocess.run(..., shell=False)`).")
-
-    # 3. Code Injection / Eval Fix
-    if "eval(" in code:
-        vuln_detected = True
-        remediated_code = re.sub(r"eval\(.*?\)", "ast.literal_eval(user_input)", code)
-        changes_made.append("Replaced arbitrary code execution (`eval()`) with safe literal parser (`ast.literal_eval()`).")
-
-    # 4. Path Traversal Fix
-    if "../" in code or "open(" in code or "file_get_contents" in code:
-        vuln_detected = True
-        remediated_code = "import os\nfrom werkzeug.utils import secure_filename\n\nsafe_filename = secure_filename(user_input)\nfilepath = os.path.join(BASE_DIR, safe_filename)"
-        changes_made.append("Added path sanitization (`secure_filename`) and restricted file operations strictly within `BASE_DIR` bounds.")
-
-    # 5. Insecure Deserialization Fix
-    if "pickle.loads(" in code or "unserialize(" in code:
-        vuln_detected = True
-        remediated_code = re.sub(r"pickle\.loads\(.*?\)", "json.loads(user_input)", code)
-        changes_made.append("Replaced insecure object deserialization (`pickle.loads`) with safe data format parsing (`json.loads`).")
-
-    # 6. Hardcoded Credentials Fix
-    if re.search(r"(?i)(password|secret|api_key)\s*=\s*[\"'][^\"']+[\"']", code):
-        vuln_detected = True
-        remediated_code = re.sub(r"(?i)(password|secret|api_key)\s*=\s*[\"'][^\"']+[\"']", r"\1 = os.environ.get('SECURITY_\1_SECRET')", code)
-        changes_made.append("Replaced hardcoded plain-text credentials with environment variable lookup (`os.environ.get(...)`).")
-
-    if not vuln_detected:
-        remediated_code = f"// Security Remediated Code ({st.session_state.selected_language})\n{code}\n\n// CodeVigil AI Audit: Verified code follows standard security patterns."
-        changes_made.append("Verified code structure: No critical injection or hardcoded credential vulnerabilities requiring automatic rewrite.")
-
-    return {
-        "original": code,
-        "remediated": remediated_code,
-        "changes": changes_made,
-        "has_fix": vuln_detected
     }
 
 
@@ -647,8 +585,8 @@ elif st.session_state.active_view == "bug_detection":
     with col_lang_b:
         selected_lang_bug = st.selectbox(
             "🌐 Programming Language:",
-            ["Auto-Detect", "C / C++", "Java", "Python", "JavaScript / TypeScript", "PHP", "Go", "SQL", "Ruby"],
-            index=["Auto-Detect", "C / C++", "Java", "Python", "JavaScript / TypeScript", "PHP", "Go", "SQL", "Ruby"].index(st.session_state.selected_language) if st.session_state.selected_language in ["Auto-Detect", "C / C++", "Java", "Python", "JavaScript / TypeScript", "PHP", "Go", "SQL", "Ruby"] else 0
+            LANGUAGE_OPTIONS,
+            index=LANGUAGE_OPTIONS.index(st.session_state.selected_language) if st.session_state.selected_language in LANGUAGE_OPTIONS else 0,
         )
         st.session_state.selected_language = selected_lang_bug
         
@@ -703,28 +641,51 @@ elif st.session_state.active_view == "security_audit":
         value=st.session_state.code_query
     )
     st.session_state.code_query = input_vuln_code
+
+    run_fix = st.button("▶ Run Remediation", use_container_width=True, type="primary")
     
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### 🛠️ AI Remediation Results")
     
-    fix_result = generate_ai_remediation(input_vuln_code)
+    if run_fix:
+        st.session_state.remediation_result = generate_remediation(
+            input_vuln_code, st.session_state.selected_language
+        )
+
+    fix_result = st.session_state.get("remediation_result")
+    if not fix_result:
+        st.info("Paste vulnerable code above and click **Run Remediation**.")
+    else:
+        if fix_result.get("detected_types"):
+            st.markdown(f"**Detected vulnerability patterns:** {', '.join(fix_result['detected_types'])}")
+        if fix_result.get("detected_language") and fix_result["detected_language"] != "Auto-Detect":
+            st.markdown(f"**Detected language:** `{fix_result['detected_language']}`")
+        if fix_result.get("has_fix"):
+            st.success("Remediation applied — review the fixed code below.")
+        elif fix_result.get("changes"):
+            st.warning("No code changes were applied. See summary for details.")
     
-    col_orig, col_fix = st.columns(2)
-    with col_orig:
-        st.markdown("<div class='feature-card-staggered' style='border-top:3px solid #f87171;'>", unsafe_allow_html=True)
-        st.markdown("❌ **Original Code:**")
-        st.code(fix_result["original"], language="text")
-        st.markdown("</div>", unsafe_allow_html=True)
-        
-    with col_fix:
-        st.markdown("<div class='feature-card-staggered' style='border-top:3px solid #4ade80;'>", unsafe_allow_html=True)
-        st.markdown("✅ **AI Remediated Safe Code:**")
-        st.code(fix_result["remediated"], language="text")
-        st.markdown("</div>", unsafe_allow_html=True)
-        
-    st.markdown("#### 📝 AI Security Refactoring Summary:")
-    for chg in fix_result["changes"]:
-        st.markdown(f"- {chg}")
+    if fix_result:
+        col_orig, col_fix = st.columns(2)
+        with col_orig:
+            st.markdown("<div class='feature-card-staggered' style='border-top:3px solid #f87171;'>", unsafe_allow_html=True)
+            st.markdown("❌ **Original Code:**")
+            st.code(fix_result["original"], language="text")
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        with col_fix:
+            st.markdown("<div class='feature-card-staggered' style='border-top:3px solid #4ade80;'>", unsafe_allow_html=True)
+            st.markdown("✅ **AI Remediated Safe Code:**")
+            st.code(fix_result["remediated"], language="text")
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        st.markdown("#### 📝 AI Security Refactoring Summary:")
+        for chg in fix_result["changes"]:
+            st.markdown(f"- {chg}")
+        if fix_result.get("remaining_syntax_issues"):
+            st.markdown("#### ⚠️ Remaining syntax issues:")
+            for issue in fix_result["remaining_syntax_issues"]:
+                st.markdown(f"- {issue}")
 
 
 # ─────────────────────────────────────────────
@@ -765,6 +726,45 @@ elif st.session_state.active_view == "compare_algos":
     }
     
     st.table(pd.DataFrame(comparison_data))
+
+    detection = detect_code_patterns(comp_q)
+    if detection["detected_types"]:
+        relevant_ids = [c["cve_id"] for c in models["cves"] if c["type"] in detection["detected_types"]]
+    else:
+        pred_type, _ = models["type_classifier"].predict(comp_q)
+        relevant_ids = [c["cve_id"] for c in models["cves"] if c["type"] == pred_type]
+
+    if relevant_ids:
+        eval_k = min(top_k, 5)
+        tfidf_ids = [r["cve_id"] for r in tfidf_res]
+        bm25_ids = [r["cve_id"] for r in bm25_res]
+        hybrid_ids = [r["cve_id"] for r in hybrid_res]
+        metrics_data = {
+            "Algorithm": ["TF-IDF + Cosine Similarity", "BM25 (Okapi)", "Hybrid (TF-IDF + BM25)"],
+            f"P@{eval_k}": [
+                f"{precision_at_k(tfidf_ids, relevant_ids, eval_k):.4f}",
+                f"{precision_at_k(bm25_ids, relevant_ids, eval_k):.4f}",
+                f"{precision_at_k(hybrid_ids, relevant_ids, eval_k):.4f}",
+            ],
+            f"R@{eval_k}": [
+                f"{recall_at_k(tfidf_ids, relevant_ids, eval_k):.4f}",
+                f"{recall_at_k(bm25_ids, relevant_ids, eval_k):.4f}",
+                f"{recall_at_k(hybrid_ids, relevant_ids, eval_k):.4f}",
+            ],
+            f"F1@{eval_k}": [
+                f"{f1_at_k(tfidf_ids, relevant_ids, eval_k):.4f}",
+                f"{f1_at_k(bm25_ids, relevant_ids, eval_k):.4f}",
+                f"{f1_at_k(hybrid_ids, relevant_ids, eval_k):.4f}",
+            ],
+            "MRR": [
+                f"{mean_reciprocal_rank([(tfidf_ids, relevant_ids)]):.4f}",
+                f"{mean_reciprocal_rank([(bm25_ids, relevant_ids)]):.4f}",
+                f"{mean_reciprocal_rank([(hybrid_ids, relevant_ids)]):.4f}",
+            ],
+        }
+        st.markdown("#### IR Evaluation Metrics")
+        st.caption(f"Relevance set: {len(relevant_ids)} CVE(s) matching detected/predicted type(s).")
+        st.table(pd.DataFrame(metrics_data))
     
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -880,7 +880,7 @@ elif st.session_state.active_view == "export_report":
 
     with c4:
         md_report = f"# CodeVigil Security Audit Report\n\nGenerated: {time.strftime('%Y-%m-%d %H:%M:%S')}\n\n"
-        for c in models["cves"][:15]:
+        for c in models["cves"]:
             md_report += f"### {c['cve_id']} - {c['type']} ({c['severity']})\n{c['description']}\n\n"
         st.download_button("📥 Download Markdown Report", data=md_report, file_name="codevigil_report.md", mime="text/markdown", use_container_width=True)
 
@@ -924,8 +924,8 @@ else:
     with col_lang_sel:
         language = st.selectbox(
             "🌐 Select Programming Language:",
-            ["Auto-Detect", "C / C++", "Java", "Python", "JavaScript / TypeScript", "PHP", "Go", "SQL", "Ruby"],
-            index=["Auto-Detect", "C / C++", "Java", "Python", "JavaScript / TypeScript", "PHP", "Go", "SQL", "Ruby"].index(st.session_state.selected_language) if st.session_state.selected_language in ["Auto-Detect", "C / C++", "Java", "Python", "JavaScript / TypeScript", "PHP", "Go", "SQL", "Ruby"] else 0
+            LANGUAGE_OPTIONS,
+            index=LANGUAGE_OPTIONS.index(st.session_state.selected_language) if st.session_state.selected_language in LANGUAGE_OPTIONS else 0,
         )
         st.session_state.selected_language = language
         
@@ -1066,12 +1066,7 @@ else:
         results = [r for r in results if r["type"] in type_filter]
 
     if active_q and not detection["detected_types"] and not results:
-        st.markdown("""
-        <div class="feature-card-staggered" style="border-top: 3px solid #4ade80; text-align: center; padding: 25px;">
-            <h3 style="color:#4ade80; margin:0 0 8px 0;">✅ Code Status: Clean & Benign</h3>
-            <p style="color:#849385; margin:0;">No security vulnerabilities or threat patterns detected in your code snippet.</p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.warning("No matching CVEs found above the relevance threshold. This does **not** confirm your code is safe — review manually or use Bug Detector / AI Remediation.")
     elif results:
         pred_type, type_conf = models["type_classifier"].predict(boosted_q)
         pred_sev, sev_conf = models["severity_predictor"].predict(boosted_q)
