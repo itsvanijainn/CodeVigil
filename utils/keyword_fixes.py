@@ -38,7 +38,7 @@ TYPO_MAP: dict[str, dict[str, str]] = {
         "classs": "class", "calss": "class", "clss": "class",
         "Sttring": "String", "Strng": "String", "Strin": "String",
         "Sytem": "System", "Sysetm": "System", "Sstem": "System",
-        "prinln": "println", "printl": "println", "printLn": "println",
+        "prinln": "println", "printl": "println",
         "imprt": "import", "impor": "import",
         "retrun": "return", "retun": "return",
         "mainn": "main", "mian": "main",
@@ -103,10 +103,10 @@ TYPO_MAP: dict[str, dict[str, str]] = {
 
 # Phrase-level fixes (multi-word typos)
 PHRASE_FIXES: list[tuple[str, str, str]] = [
-    (r"\busing\s+namepsace\s+std\b", "using namespace std", "C / C++"),
-    (r"\busing\s+namespase\s+std\b", "using namespace std", "C / C++"),
-    (r"\busing\s+namespace\s+stdd\b", "using namespace std", "C / C++"),
-    (r"\busing\s+namespace\s+std\s*;", "using namespace std", "C / C++"),
+    (r"\busing\s+namepsace\s+std\s*;?", "using namespace std;", "C / C++"),
+    (r"\busing\s+namespase\s+std\s*;?", "using namespace std;", "C / C++"),
+    (r"\busing\s+namespace\s+stdd\s*;?", "using namespace std;", "C / C++"),
+    (r"\busing\s+namespace\s+std\s*;?", "using namespace std;", "C / C++"),
     (r"#includ\s*<", "#include <", "C / C++"),
     (r"#incluude\s*<", "#include <", "C / C++"),
     (r"#include\s*iostream\s*>", "#include <iostream>", "C / C++"),
@@ -160,6 +160,7 @@ def scan_keyword_typos(code: str, language: str) -> list[str]:
         if language != "Auto-Detect" and apply_lang != language:
             continue
         for wrong in typo_map:
-            if re.search(rf"\b{re.escape(wrong)}\b", code, re.I):
+            flags = re.I if wrong.islower() else 0
+            if re.search(rf"\b{re.escape(wrong)}\b", code, flags):
                 issues.append(f"Misspelled keyword `{wrong}` (should be `{typo_map[wrong]}`).")
     return issues

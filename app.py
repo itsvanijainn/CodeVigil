@@ -27,9 +27,11 @@ from utils.metrics import precision_at_k, recall_at_k, f1_at_k, mean_reciprocal_
 from utils.code_detector import detect_code_patterns
 
 # Hot-reload remediation modules so Streamlit picks up changes without full restart
-import utils.syntax_fixer as _syntax_fixer
+import utils.fuzzy_keywords as _fuzzy_keywords
 import utils.keyword_fixes as _keyword_fixes
+import utils.syntax_fixer as _syntax_fixer
 import utils.remediation as _remediation
+importlib.reload(_fuzzy_keywords)
 importlib.reload(_keyword_fixes)
 importlib.reload(_syntax_fixer)
 importlib.reload(_remediation)
@@ -566,9 +568,13 @@ elif st.session_state.active_view == "security_audit":
             st.markdown(f"- {chg}")
 
         if fix_result.get("remaining_syntax_issues"):
-            st.markdown("#### ⚠️ Remaining issues:")
+            st.markdown("#### ⚠️ Remaining issues (may need manual fix):")
             for issue in fix_result["remaining_syntax_issues"]:
                 st.markdown(f"- {issue}")
+            st.caption(
+                "CodeVigil fixes common keyword typos, symbols, braces, and security patterns. "
+                "Complex logic errors may still need manual review."
+            )
 
 
 # ─────────────────────────────────────────────

@@ -5,6 +5,9 @@ from __future__ import annotations
 import ast
 import re
 
+from utils.fuzzy_keywords import detect_language_robust, fuzzy_fix_keywords
+from utils.keyword_fixes import fix_keyword_typos, scan_keyword_typos
+
 # Words that must NOT be wrapped in quotes after cout/cin/print
 _STREAM_KEYWORDS = frozenset({
     "endl", "std", "hex", "dec", "oct", "boolalpha", "noboolalpha",
@@ -26,30 +29,13 @@ def normalize_code(code: str) -> str:
 
 def detect_language(code: str, language: str = "Auto-Detect") -> str:
     code = normalize_code(code)
-    if (
-        "#include" in code or "using namespace" in code
-        or re.search(r"\bcout\b|\bcin\b|\bstd::", code)
-        or re.search(r"\bint\s+main\w*\s*\(", code)
-    ):
-        return "C / C++"
-    if re.search(r"\bpublic\s+class\b|\bSystem\.out\b|\bpublic\s+static\s+void\s+main", code):
-        return "Java"
-    if re.search(r"^\s*def\s+\w+|^\s*import\s+\w+|^\s*from\s+\w+\s+import|^\s*print\s*\(|^\s*print\s+\S", code, re.M):
-        return "Python"
-    if re.search(r"\bfunction\s+\w+|\bconsole\.(log|error|warn)\b|\b(const|let|var)\s+\w+", code):
-        return "JavaScript / TypeScript"
-    if "<?php" in code or re.search(r"\$\w+\s*=", code):
-        return "PHP"
-    if re.search(r"\bfunc\s+\w+|\bfmt\.Print", code):
-        return "Go"
-    if re.search(r"\bSELECT\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b", code, re.I):
-        return "SQL"
+    inferred = detect_language_robust(code)
+    if inferred != "Auto-Detect":
+        return inferred
     if language != "Auto-Detect":
         return language
     return "Auto-Detect"
 
-
-from utils.keyword_fixes import fix_keyword_typos, scan_keyword_typos
 
 def scan_syntax_issues(code: str) -> list[str]:
     """Detect all known fixable syntax issue types in code."""
@@ -123,11 +109,37 @@ def _fix_entry_point_names(code: str, changes: list[str]) -> str:
     )
 
 
+def _is_include_line(line: str) -> bool:
+    return bool(re.match(r"\s*#include\b", line))
+
+
 def _fix_include_directives(code: str, changes: list[str]) -> str:
-    updated = re.sub(r"#include\s*<", "#include <", code)
-    if updated != code:
-        changes.append("Fixed `#include<` -> `#include <`.")
-    return updated
+    """Normalize #include lines without breaking header names like iostream."""
+    out: list[str] = []
+    for line in code.splitlines():
+        m = re.match(r"^(\s*)#include\s*<(.+)$", line)
+        if not m:
+            out.append(line)
+            continue
+        indent, rest = m.group(1), m.group(2)
+        # Recover from prior corruption (e.g. iost>r>e>a>m>) and missing closing >
+        header = rest.strip().rstrip(">").strip().replace(">", "")
+        fixed = f"{indent}#include <{header}>"
+        if fixed != line:
+            changes.append("Fixed `#include` directive formatting.")
+        out.append(fixed)
+    return "\n".join(out)
+
+
+def _polish_spacing(line: str, changes: list[str]) -> str:
+    """Clean spacing around stream operators and quotes."""
+    fixed = line
+    if re.search(r"\bcout\s*<<\s+\"", fixed):
+        fixed = re.sub(r"(\bcout\s*<<)\s+\"", r'\1"', fixed)
+        changes.append("Fixed spacing in cout statement.")
+    if re.search(r"\bcin\s*>>\s+\w", fixed):
+        fixed = re.sub(r"(\bcin\s*>>)\s+", r"\1", fixed)
+    return fixed
 
 
 def _fix_line_stream_operators(line: str, changes: list[str]) -> str:
@@ -329,36 +341,50 @@ def _dedupe_changes(changes: list[str]) -> list[str]:
 
 # ── Main fix pipeline ─────────────────────────────────────────────────────────
 
-def fix_syntax(code: str, language: str = "Auto-Detect") -> tuple[str, list[str]]:
-    """Multi-pass syntax fixer — runs universal + language-specific rules."""
-    code = normalize_code(code)
-    changes: list[str] = []
-    lang = detect_language(code, "Auto-Detect")
-
-    # Pass 1: keyword & phrase typos (language-aware, also scans all if Auto-Detect)
+def _single_pass(code: str, lang: str, changes: list[str]) -> str:
+    """One full remediation pass."""
     code = fix_keyword_typos(code, lang, changes)
+    code = fuzzy_fix_keywords(code, lang, changes)
     code = _fix_entry_point_names(code, changes)
     code = _fix_include_directives(code, changes)
 
-    # Pass 2: line-by-line universal fixes
     lines: list[str] = []
     for line in code.splitlines():
+        if _is_include_line(line):
+            lines.append(line)
+            continue
         line = _fix_line_stream_operators(line, changes)
         line = _fix_unquoted_output_strings(line, changes)
+        line = _polish_spacing(line, changes)
         line = _fix_line_semicolons(line, changes)
         lines.append(line)
     code = "\n".join(lines)
 
-    # Pass 3: language-specific
     if lang == "Python":
         code = _fix_python_lines(code, changes)
 
-    # Pass 4: structural balancing (always, all languages)
     code = _fix_braces(code, changes)
     code = _fix_delimiter(code, "(", ")", "parentheses", changes)
     code = _fix_delimiter(code, "[", "]", "square brackets", changes)
+    return code
 
-    return code, _dedupe_changes(changes)
+
+def fix_syntax(code: str, language: str = "Auto-Detect") -> tuple[str, list[str]]:
+    """Multi-pass syntax fixer — repeats until code stabilizes (max 4 passes)."""
+    code = normalize_code(code)
+    all_changes: list[str] = []
+    lang = detect_language(code, "Auto-Detect")
+
+    for _ in range(4):
+        pass_changes: list[str] = []
+        new_code = _single_pass(code, lang, pass_changes)
+        all_changes.extend(pass_changes)
+        if new_code.strip() == code.strip():
+            break
+        code = new_code
+        lang = detect_language(code, "Auto-Detect")
+
+    return code, _dedupe_changes(all_changes)
 
 
 def analyze_syntax(code: str, language: str = "Auto-Detect") -> dict:
