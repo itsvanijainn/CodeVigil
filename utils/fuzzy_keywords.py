@@ -67,7 +67,7 @@ LANG_SIGNALS: dict[str, list[str]] = {
     "C / C++": [
         "#include", "#incl", "iostream", "using namespace", "namepsace", "namespace",
         "cout", "coutt", "cin", "cinn", "std", "::", "printf", "scanf", "nullptr",
-        "main(", "mainn", "mainnn", "int main", "void main",
+        "main(", "mainn", "mainnn", "int main", "void main", "int fibonacci",
     ],
     "Java": [
         "public class", "System.out", "Sytem", "static void main", "println",
@@ -86,11 +86,14 @@ LANG_SIGNALS: dict[str, list[str]] = {
     "SQL": ["SELECT", "sellect", "INSERT", "UPDATE", "DELETE", "FROM", "WHERE"],
 }
 
-# Never fuzzy-replace these identifiers (user variables, common words)
+# Never fuzzy-replace these identifiers (user variables, common words, standard type names)
 SKIP_FUZZY: frozenset[str] = frozenset({
     "hello", "world", "test", "foo", "bar", "baz", "temp", "tmp", "data", "result",
     "value", "name", "user", "item", "count", "index", "key", "args", "argv",
     "i", "j", "k", "n", "x", "y", "z", "a", "b", "c",
+    "int", "void", "float", "double", "char", "bool", "long", "short", "struct", "class",
+    "def", "func", "var", "let", "const", "return", "using", "include", "namespace", "main",
+    "cout", "cin", "printf", "scanf", "puts", "fibonacci", "fib", "public", "static", "private",
 })
 
 
@@ -114,31 +117,27 @@ def fuzzy_fix_keywords(code: str, language: str, changes: list[str]) -> str:
 
     keywords = LANGUAGE_KEYWORDS[language]
     kw_lower = [k.lower() for k in keywords]
-    # Map lowercase -> canonical casing
     canonical = {k.lower(): k for k in keywords}
 
     def replace_word(m: re.Match) -> str:
         word = m.group(0)
         wl = word.lower()
-        if wl in kw_lower or wl in SKIP_FUZZY or word.isupper() or len(word) < 3:
+        if wl in kw_lower or wl in SKIP_FUZZY or word.isupper() or len(word) <= 3:
             return word
         if wl.isdigit():
             return word
-        matches = difflib.get_close_matches(wl, kw_lower, n=1, cutoff=0.72)
+        matches = difflib.get_close_matches(wl, kw_lower, n=1, cutoff=0.78)
         if not matches:
             return word
         best = matches[0]
         if best == wl:
             return word
-        # Don't replace if already a valid substring match
         fixed = canonical.get(best, best)
         changes.append(f"Corrected `{word}` -> `{fixed}` (fuzzy keyword match).")
         return fixed
 
-    # Only replace bare identifiers outside strings (line-by-line safe approach)
     lines = []
     for line in code.splitlines():
-        # Never fuzzy-correct inside #include or // comment lines
         if re.match(r"\s*#include", line) or line.strip().startswith("//"):
             lines.append(line)
             continue
