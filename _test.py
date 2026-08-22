@@ -16,6 +16,7 @@ int fibonacci(int n) {
     ("cpp_cin_reversed", "#include<iostream>\nusing namespace std;\nint main(){\nint x;\ncin<< x;\ncout>> x;\nreturn 0;\n}"),
     ("python_missing_colon", "deff greet(name)\n    prinnt hello\n"),
     ("java_missing_semi_and_quotes", "public class Main {\n  public static void main(String[] args) {\n    Sytem.out.println(hello)\n  }\n}"),
+    ("fuzzy_keyword_test", "pubic clas Main {\n  pubic statc vod main(String[] args) {\n    reutrn;\n  }\n}"),
 ]
 
 for name, code in CASES:

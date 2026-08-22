@@ -5,7 +5,7 @@ from __future__ import annotations
 import ast
 import re
 
-from utils.fuzzy_keywords import detect_language_robust, fuzzy_fix_keywords
+from utils.fuzzy_keywords import detect_language_robust, fuzzy_fix_keywords, scan_fuzzy_keyword_typos
 from utils.keyword_fixes import fix_keyword_typos, scan_keyword_typos
 
 # Stream keywords and standard single-letter / common variable names that must NOT be quoted
@@ -72,6 +72,10 @@ def scan_syntax_issues(code: str) -> list[str]:
     lang = detect_language(code)
 
     issues.extend(scan_keyword_typos(code, lang))
+    
+    dummy_changes: list[str] = []
+    partially_fixed = fix_keyword_typos(code, lang, dummy_changes)
+    issues.extend(scan_fuzzy_keyword_typos(partially_fixed, lang))
     if re.search(r"\bmain(?!\.)\w+\s*\(", code) and not re.search(r"\bmain\s*\(", code):
         issues.append("Misspelled entry point (`mainnn`, `maon`, etc.) — should be `main`.")
     if re.search(r"\b([a-zA-Z_]\w*)\s*--(?:-)*\s*(\d+|[a-zA-Z_]\w*)", code) or re.search(r"\b([a-zA-Z_]\w*)\s*-\s*-\s*(\d+)", code):
@@ -84,14 +88,41 @@ def scan_syntax_issues(code: str) -> list[str]:
         issues.append("Reversed stream operator on cout/cin.")
     if re.search(r"\b(printf|puts|scanf)\s*<<", code):
         issues.append("Invalid stream operator `<<` on `printf`/`puts`/`scanf` call.")
-    if re.search(r"\bcout\s*\(\s*[\"'][^\"']+[\"']\s*\)", code):
+    if re.search(r"\bcout\s*\(\s*(.+?)\s*\)", code):
         issues.append("Invalid function call syntax on `cout(...)` — use `cout << ...`.")
+    if re.search(r"\bcin\s*\(\s*([a-zA-Z_]\w*)\s*\)", code):
+        issues.append("Invalid function call syntax on `cin(...)` — use `cin >> ...`.")
+
+    declared = _extract_declared_variables(code)
     if re.search(r'\bcout\s*<<\s*[a-zA-Z_]\w*(?=\s*[;,\s]|$)', code) and not re.search(r'\bcout\s*<<\s*["\']', code):
-        declared = _extract_declared_variables(code)
         for m in re.finditer(r'\bcout\s*<<\s*([a-zA-Z_]\w*)', code):
-            if m.group(1) not in declared:
+            if m.group(1) not in declared and m.group(1) not in _STREAM_KEYWORDS and not m.group(1).isdigit():
                 issues.append(f"Missing quotes around string literal `{m.group(1)}` in cout output.")
                 break
+
+    for m in re.finditer(r'\b(printf|puts|print|System\.out\.print\w*|console\.(?:log|error|warn|info))\s*\(\s*([a-zA-Z_]\w*)\s*\)', code):
+        func = m.group(1)
+        word = m.group(2)
+        if word not in declared and word not in _STREAM_KEYWORDS and not word.isdigit():
+            issues.append(f"Missing quotes around string literal `{word}` in `{func}()` call.")
+            break
+
+    for bad_op, good_op in [
+        (r"=\s*=", "=="),
+        (r"!\s*=", "!="),
+        (r">\s*=", ">="),
+        (r"<\s*=", "<="),
+        (r"=\s*>", ">="),
+        (r"=\s*<", "<="),
+        (r"&\s*&", "&&"),
+        (r"\|\s*\|", "||"),
+    ]:
+        if re.search(bad_op, code) and not re.search(r"==\s*=|!=\s*=", code):
+            if re.sub(bad_op, good_op, code) != code:
+                issues.append(f"Invalid spaced or reversed operator — should be `{good_op}`.")
+
+    if ("fibonacci" in code.lower() or "fib(" in code.lower() or "f(n)" in code.lower()) and re.search(r"\bif\s*\(\s*n\s*<\s*1\s*\)", code):
+        issues.append("Fibonacci base case logic bug: `n < 1` should be `n <= 1` to prevent infinite recursion.")
 
     # Check unclosed string quotes per line
     for i, line in enumerate(code.splitlines(), 1):

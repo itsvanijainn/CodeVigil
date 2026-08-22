@@ -147,3 +147,15 @@ def fuzzy_fix_keywords(code: str, language: str, changes: list[str]) -> str:
         fixed_line = re.sub(r"\b[a-zA-Z_]\w*\b", replace_word, line)
         lines.append(fixed_line)
     return "\n".join(lines)
+
+
+def scan_fuzzy_keyword_typos(code: str, language: str) -> list[str]:
+    """Detect keywords that would be fuzzy-fixed."""
+    changes: list[str] = []
+    fuzzy_fix_keywords(code, language, changes)
+    issues: list[str] = []
+    for change in changes:
+        m = re.match(r"Corrected `([^`]+)` -> `([^`]+)`", change)
+        if m:
+            issues.append(f"Misspelled keyword `{m.group(1)}` (should be `{m.group(2)}`).")
+    return issues

@@ -857,15 +857,9 @@ else:
     # HERO & TAGLINE
     st.markdown("""
     <div style="text-align: center; max-width: 850px; margin: 15px auto 10px auto;">
-        <div style="display:inline-flex; align-items:center; gap:8px; background:#0d150e; border:1px solid #1b2e1c; border-radius:100px; padding:6px 18px; margin-bottom:16px; font-family:'JetBrains Mono', monospace; font-size:13px; color:#22c55e;">
-            codevigil@scan:~$ ready <span style="width:7px; height:14px; background:#4ade80; display:inline-block; margin-left:4px;"></span>
-        </div>
         <h1 style="font-family: 'Space Grotesk', sans-serif; font-size:42px; font-weight:800; line-height:1.15; margin:0 0 12px 0; letter-spacing:-0.02em; color:#e2e8f0;">
             Find the vuln <span style="color:#4ade80;">before it finds you.</span>
         </h1>
-        <p style="color:#849385; font-size:15.5px; max-width:640px; margin:0 auto; line-height:1.6; font-family: 'Outfit', sans-serif;">
-            Paste code or describe a weakness. CodeVigil scans against <b>""" + str(len(models['cves'])) + """</b> indexed NVD CVEs using TF-IDF + cosine similarity and classifies threats with ML.
-        </p>
     </div>
     """, unsafe_allow_html=True)
     
